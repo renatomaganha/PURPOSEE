@@ -600,7 +600,9 @@ function App() {
       !likedProfiles.includes(p.id) && 
       !passedProfiles.includes(p.id) &&
       (!p.isInvisibleMode || likedProfiles.includes(p.id)) &&
-      !p.isPaused
+      !p.isPaused &&
+      // Garante que o usuário atual veja apenas os gêneros que ele procura.
+      currentUserProfile.seeking?.includes(p.gender)
     );
     
     // 2. Apply location filter
