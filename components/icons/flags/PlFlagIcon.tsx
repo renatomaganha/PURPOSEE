@@ -1,0 +1,12 @@
+import React from 'react';
+
+interface IconProps {
+  className?: string;
+}
+
+export const PlFlagIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 5" className={className}>
+        <path fill="#fff" d="M0 0h8v5H0z"/>
+        <path fill="red" d="M0 2.5h8v2.5H0z"/>
+    </svg>
+);
