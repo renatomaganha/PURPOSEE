@@ -5,6 +5,7 @@ import { FlagIcon } from './icons/FlagIcon';
 import { XIcon } from './icons/XIcon';
 import { CheckBadgeIcon } from './icons/CheckBadgeIcon';
 import { PaperClipIcon } from './icons/PaperClipIcon';
+import { useToast } from '../contexts/ToastContext';
 
 // FIX: Removed the duplicate ReportReason type. It is now imported from types.ts.
 
@@ -32,6 +33,7 @@ export const ReportUserModal: React.FC<ReportUserModalProps> = ({ profile, onClo
     const [files, setFiles] = useState<File[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { addToast } = useToast();
 
     useEffect(() => {
         // Cleanup object URLs on unmount to prevent memory leaks
@@ -69,7 +71,7 @@ export const ReportUserModal: React.FC<ReportUserModalProps> = ({ profile, onClo
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedReason) {
-            alert('Por favor, selecione um motivo para a denúncia.');
+            addToast({ type: 'error', message: 'Por favor, selecione um motivo para a denúncia.' });
             return;
         }
         setStep('submitting');

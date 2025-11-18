@@ -17,6 +17,7 @@ import { Tooltip } from './Tooltip';
 import { InformationCircleIcon } from './icons/InformationCircleIcon';
 import { useLanguage } from '../contexts/LanguageContext';
 import { SparklesIcon } from './icons/SparklesIcon';
+import { useToast } from '../contexts/ToastContext';
 
 
 interface ProfileCardProps {
@@ -51,6 +52,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const { t } = useLanguage();
+  const { addToast } = useToast();
   
   // Swipe state
   const cardRef = useRef<HTMLDivElement>(null);
@@ -152,7 +154,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
       }
       
       if (action === 'superlike' && !currentUserProfile.isPremium) {
-        alert("A Super Conexão é um recurso exclusivo para usuários Premium.");
+        addToast({ type: 'info', message: "A Super Conexão é um recurso exclusivo para usuários Premium." });
         return;
       }
 

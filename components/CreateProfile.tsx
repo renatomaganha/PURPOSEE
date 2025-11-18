@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserProfile, Gender, Denomination, ChurchFrequency, RelationshipGoal, MaritalStatus, Tag } from '../types';
+import { UserProfile, Gender, Denomination, ChurchFrequency, RelationshipGoal, MaritalStatus, Tag, VerificationStatus } from '../types';
 import { PhotoIcon } from './icons/PhotoIcon';
 import { useAuth } from '../auth/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LocationMarkerIcon } from './icons/LocationMarkerIcon';
-import { SelfieVerification } from './SelfieVerification';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import { PhotoUploadModal } from './PhotoUploadModal';
 import { CameraCapture } from './CameraCapture';
+import { FaceVerification } from './FaceVerification';
+import { CheckBadgeIcon } from './icons/CheckBadgeIcon';
+import { ArrowPathIcon } from './icons/ArrowPathIcon';
 
 
 const allChurchFrequencies = Object.values(ChurchFrequency);
@@ -56,6 +58,7 @@ const dbProfileToAppProfile = (dbData: any): Partial<UserProfile> => {
     interests: dbData.interests || [],
     languages: dbData.languages || [],
     isVerified: dbData.is_verified,
+    face_verification_status: dbData.face_verification_status,
     isPremium: dbData.is_premium,
     isInvisibleMode: dbData.is_invisible_mode,
     isPaused: dbData.is_paused,
@@ -101,6 +104,7 @@ const appProfileToDbProfile = (appData: Partial<UserProfile>): any => {
         interests: appData.interests,
         languages: appData.languages,
         is_verified: appData.isVerified,
+        face_verification_status: appData.face_verification_status,
         is_premium: appData.isPremium,
         is_invisible_mode: appData.isInvisibleMode,
         is_paused: appData.isPaused,
@@ -183,7 +187,6 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
 
     const [profileData, setProfileData] = useState<Partial<UserProfile>>({
         photos: [null, null, null, null, null],
-        privatePhoto: null,
         gender: Gender.MULHER,
         seeking: [Gender.HOMEM], // Default seeking
         denomination: "Não Denominacional",
@@ -194,6 +197,7 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
         keyValues: [],
         languages: [],
         isVerified: false,
+        face_verification_status: VerificationStatus.NOT_VERIFIED,
     });
 
     useEffect(() => {
@@ -360,22 +364,24 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
     const handleBack = () => { setError(null); setStep(prev => prev - 1) };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
+        const { name, value, type } = e.target;
+        
+        // Refactored change handler
         setProfileData(prev => {
-            const updated = { ...prev };
-            
-            if (name === 'height') {
-                const sanitized = value.replace(/[^0-9]/g, '');
-                updated.height = sanitized ? Number(sanitized) : undefined;
-            } else {
-                // Keep original logic for other fields
-                (updated as any)[name] = value;
-            }
+            const newState = { ...prev };
 
-            if (name === 'gender') {
-                updated.seeking = value === Gender.HOMEM ? [Gender.MULHER] : [Gender.HOMEM];
+            if (name === 'height' && type === 'tel') {
+                const sanitized = value.replace(/[^0-9]/g, '');
+                (newState as any)[name] = sanitized ? Number(sanitized) : undefined;
+            } else if (name === 'gender') {
+                const newGender = value as Gender;
+                newState.gender = newGender;
+                newState.seeking = newGender === Gender.HOMEM ? [Gender.MULHER] : [Gender.HOMEM];
+            } else {
+                (newState as any)[name] = value;
             }
-            return updated;
+            
+            return newState;
         });
     };
 
@@ -419,20 +425,13 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
     };
     
      const startVerification = () => {
-        if (!profileData.privatePhoto) {
-            setError(t('errorPrivatePhoto'));
+        if (!profileData.photos?.[0]) {
+            setError('É necessário adicionar sua foto de perfil principal (a primeira) antes de verificar.');
+            setStep(2); // Leva o usuário de volta para a etapa de fotos
             return;
         }
         setError(null);
         setIsVerifying(true);
-    };
-
-    const onVerificationComplete = (selfie: string) => {
-        // Here you would typically send the selfie to a backend for comparison.
-        // For this simulation, we'll just mark as verified.
-        console.log("Selfie captured:", selfie.substring(0, 30) + "...");
-        setProfileData(prev => ({ ...prev, isVerified: true }));
-        setIsVerifying(false); // Go back to the verification step summary
     };
 
     const totalSteps = 5;
@@ -447,7 +446,37 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
     }
     
     if (isVerifying) {
-        return <SelfieVerification onBack={() => setIsVerifying(false)} onComplete={onVerificationComplete} />;
+        const profileForVerification = {
+            id: user!.id,
+            name: profileData.name || '',
+            photos: profileData.photos || [null],
+            age: profileData.age || 0,
+            gender: profileData.gender || Gender.MULHER,
+            location: profileData.location || '',
+            bio: profileData.bio || '',
+            denomination: profileData.denomination || '',
+            churchFrequency: profileData.churchFrequency || ChurchFrequency.OCASIONALMENTE,
+            keyValues: profileData.keyValues || [],
+            relationshipGoal: profileData.relationshipGoal || RelationshipGoal.NAO_SEI,
+            maritalStatus: profileData.maritalStatus || MaritalStatus.SOLTEIRO,
+            interests: profileData.interests || [],
+            isVerified: profileData.isVerified || false,
+            face_verification_status: profileData.face_verification_status || VerificationStatus.NOT_VERIFIED,
+            isPremium: profileData.isPremium || false,
+        } as UserProfile;
+
+        return <FaceVerification 
+            userProfile={profileForVerification}
+            onBack={() => setIsVerifying(false)} 
+            onComplete={async (status: VerificationStatus) => {
+                setProfileData(prev => ({ 
+                    ...prev, 
+                    face_verification_status: status,
+                    isVerified: status === VerificationStatus.VERIFIED
+                }));
+                setIsVerifying(false);
+            }} 
+        />;
     }
 
     const PhotoUploader: React.FC<{
@@ -726,30 +755,6 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                             />
                         ))}
                     </div>
-                    
-                    <div className="mt-6 border-t pt-4">
-                        <h2 className="text-lg font-bold mb-2">Foto Privada (para verificação)</h2>
-                        <p className="text-xs text-slate-500 mb-3">
-                            Esta foto <strong>não será exibida</strong> no seu perfil. Ela é usada apenas para o processo de verificação por selfie, garantindo a segurança da comunidade.
-                        </p>
-                        <div className="flex gap-4 items-start">
-                            <div className="w-24 h-24 flex-shrink-0">
-                                 <PhotoUploader
-                                    photo={profileData.privatePhoto || null}
-                                    isUploading={uploadingStatus['private']}
-                                    onClick={() => openUploadOptions('private')}
-                                />
-                            </div>
-                            <div className="text-sm text-slate-600">
-                                <p className="font-semibold">Requisitos:</p>
-                                <ul className="list-disc list-inside text-xs mt-1">
-                                    <li>Rosto claramente visível</li>
-                                    <li>Sem óculos de sol ou chapéus</li>
-                                    <li>Boa iluminação</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
 
                     <button onClick={handleNext} className="w-full bg-sky-600 text-white font-bold py-3 rounded-lg mt-6">{t('continue')}</button>
                 </div>
@@ -818,11 +823,27 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
 
             {step === 5 && (
                 <div>
-                     <h1 className="text-2xl font-bold mb-4 text-center">{t('selfieVerification')}</h1>
-                    {profileData.isVerified ? (
+                     <h1 className="text-2xl font-bold mb-4 text-center">Verificação de Perfil</h1>
+                    
+                    {profileData.face_verification_status === VerificationStatus.VERIFIED ? (
                         <div className="text-center p-4 bg-green-50 text-green-800 rounded-lg">
-                            <h3 className="font-bold">{t('verificationSuccess')}</h3>
-                            <p className="text-sm mt-1">{t('verificationSuccessDesc')}</p>
+                            <CheckBadgeIcon className="w-12 h-12 mx-auto text-green-500 mb-2"/>
+                            <h3 className="font-bold">Perfil Verificado!</h3>
+                            <p className="text-sm mt-1">Você concluiu todas as etapas com sucesso.</p>
+                        </div>
+                    ) : profileData.face_verification_status === VerificationStatus.REJECTED ? (
+                        <div className="text-center p-4 bg-red-50 text-red-800 rounded-lg">
+                            <h3 className="font-bold">Verificação Rejeitada</h3>
+                            <p className="text-sm mt-1">Não foi possível confirmar sua identidade. Tente novamente em um local bem iluminado.</p>
+                             <button onClick={startVerification} className="mt-4 w-full bg-sky-600 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2">
+                                <ArrowPathIcon className="w-5 h-5"/>
+                                Tentar Novamente
+                            </button>
+                        </div>
+                    ) : profileData.face_verification_status === VerificationStatus.PENDING ? (
+                         <div className="text-center p-4 bg-amber-50 text-amber-800 rounded-lg">
+                            <h3 className="font-bold">Verificação em Análise</h3>
+                            <p className="text-sm mt-1">Sua verificação está sendo analisada. Você pode finalizar o cadastro e será notificado quando o processo for concluído.</p>
                         </div>
                     ) : (
                         <div className="text-center">
@@ -832,13 +853,17 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                             </button>
                         </div>
                     )}
+
                     <button 
                         onClick={handleSubmit} 
-                        disabled={isSubmitting || !profileData.isVerified} 
+                        disabled={isSubmitting || profileData.face_verification_status !== VerificationStatus.VERIFIED} 
                         className="w-full bg-green-600 text-white font-bold py-3 rounded-lg disabled:bg-green-300 disabled:cursor-not-allowed mt-6"
                     >
                         {isSubmitting ? t('saving') : t('saveAndFinish')}
                     </button>
+                     {profileData.face_verification_status !== VerificationStatus.VERIFIED && (
+                         <p className="text-xs text-center text-slate-500 mt-2">Você deve ser verificado para finalizar o cadastro.</p>
+                     )}
                 </div>
             )}
         </div>

@@ -18,6 +18,7 @@ import { VerifiedBadgeIcon } from './icons/VerifiedBadgeIcon';
 import { CheckBadgeIcon } from './icons/CheckBadgeIcon';
 import { useLanguage } from '../contexts/LanguageContext';
 import { GlobeIcon } from './icons/GlobeIcon';
+import { useToast } from '../contexts/ToastContext';
 
 
 interface SettingsScreenProps {
@@ -106,6 +107,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     const [notificationStatus, setNotificationStatus] = useState<NotificationPermission | 'loading'>('loading');
     const [isSubscribed, setIsSubscribed] = useState(false);
     const { language, setLanguage, t } = useLanguage();
+    const { addToast } = useToast();
     
     useEffect(() => {
         getSubscriptionState().then(state => {
@@ -151,7 +153,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     
     const handleInvisibleToggle = () => {
         if (!currentUserProfile?.isPremium) {
-            alert('Modo Invisível é um recurso Premium. Faça upgrade para ativá-lo!');
+            addToast({ type: 'info', message: 'Modo Invisível é um recurso Premium. Faça upgrade para ativá-lo!' });
             return;
         }
         onToggleInvisibleMode();
@@ -189,7 +191,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                            )
                         }
                     />
-                    <SettingItem icon={<CreditCardIcon className="w-6 h-6" />} title={t('manageSubscription')} subtitle={currentUserProfile?.isPremium ? t('manageSubscriptionDescPremium') : t('manageSubscriptionDescFree')} onClick={() => alert("Gerenciar assinatura")} />
+                    <SettingItem icon={<CreditCardIcon className="w-6 h-6" />} title={t('manageSubscription')} subtitle={currentUserProfile?.isPremium ? t('manageSubscriptionDescPremium') : t('manageSubscriptionDescFree')} onClick={() => addToast({type: 'info', message: "A gestão de assinaturas será implementada aqui."})} />
                 </Section>
                 
                 <Section title={t('languageSettings')}>

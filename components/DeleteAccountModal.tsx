@@ -4,6 +4,7 @@ import { XIcon } from './icons/XIcon';
 import { StarIcon } from './icons/StarIcon';
 import { StarOutlineIcon } from './icons/StarOutlineIcon';
 import { HeartIcon } from './icons/HeartIcon';
+import { useToast } from '../contexts/ToastContext';
 
 
 interface DeleteAccountModalProps {
@@ -28,15 +29,16 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ onClose,
     const [generalFeedback, setGeneralFeedback] = useState('');
     const [isConfirmed, setIsConfirmed] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { addToast } = useToast();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!reason) {
-            alert('Por favor, selecione um motivo para a exclusão.');
+            addToast({ type: 'error', message: 'Por favor, selecione um motivo para a exclusão.' });
             return;
         }
         if (!isConfirmed) {
-            alert('Por favor, confirme que você entende as consequências da exclusão.');
+            addToast({ type: 'error', message: 'Por favor, confirme que você entende as consequências da exclusão.' });
             return;
         }
         setIsSubmitting(true);

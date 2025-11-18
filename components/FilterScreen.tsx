@@ -3,6 +3,7 @@ import { Denomination, ChurchFrequency, RelationshipGoal, FilterState, Tag } fro
 import { XIcon } from './icons/XIcon';
 import { LockClosedIcon } from './icons/LockClosedIcon';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface FilterScreenProps {
   onClose: () => void;
@@ -51,6 +52,7 @@ const SimpleButton: React.FC<{ label: string; isSelected: boolean; onClick: () =
 export const FilterScreen: React.FC<FilterScreenProps> = ({ onClose, onApply, currentFilters, isPremiumUser, denominations }) => {
     const [filters, setFilters] = useState<FilterState>(currentFilters);
     const { t } = useLanguage();
+    const { addToast } = useToast();
     
     const MIN_AGE = 18;
     const MAX_AGE = 60;
@@ -102,7 +104,7 @@ export const FilterScreen: React.FC<FilterScreenProps> = ({ onClose, onApply, cu
     };
     
     const handlePremiumFeatureClick = () => {
-        alert(t('premiumFeatureAlert'));
+        addToast({type: 'info', message: t('premiumFeatureAlert')});
     };
 
     const ageRangePercentage = {

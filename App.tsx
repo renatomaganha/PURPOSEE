@@ -27,8 +27,6 @@ import { CommunityRulesScreen } from './components/CommunityRulesScreen';
 import { SafetyTipsScreen } from './components/SafetyTipsScreen';
 import { HelpAndSupportScreen } from './components/HelpAndSupportScreen';
 import { SalesPage } from './components/SalesPage';
-import { VerificationModal } from './components/VerificationModal';
-import { SelfieVerification } from './components/SelfieVerification';
 import { FaceVerificationModal } from './components/FaceVerificationModal';
 import { FaceVerification } from './components/FaceVerification';
 import { BoostConfirmationModal } from './components/BoostConfirmationModal';
@@ -36,11 +34,13 @@ import { PeakTimeModal } from './components/PeakTimeModal';
 import { ProfileDetailModal } from './components/ProfileDetailModal';
 import { SetupCheck } from './components/SetupCheck';
 import { useLanguage } from './contexts/LanguageContext';
+import { ToastContainer } from './components/ToastContainer';
+import { useToast } from './contexts/ToastContext';
 
 
 type AppStatus = 'landing' | 'auth' | 'create_profile' | 'loading' | 'app' | 'profile_error';
 type AppView = 'profiles' | 'matches' | 'messages' | 'premium';
-type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'sales' | 'verification_prompt' | 'selfie_verification' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile';
+type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'sales' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile';
 
 const BOOST_DURATION = 3600; // 60 minutes in seconds
 
@@ -206,6 +206,7 @@ const calculateCompatibilityScore = (currentUser: UserProfile, otherUser: UserPr
 function App() {
   const { session, signOut } = useAuth();
   const { t } = useLanguage();
+  const { addToast } = useToast();
   const [logoUrl] = useState<string | null>('https://ojsgrhaopwwqpoyayumb.supabase.co/storage/v1/object/public/logoo/PURPOSE.png');
   const [appStatus, setAppStatus] = useState<AppStatus>('loading');
   
@@ -312,7 +313,7 @@ function App() {
           console.error("Error updating profile in DB:", "Message:", error.message, "Details:", error.details, "Code:", error.code);
           // Revert state on error
           setCurrentUserProfile(oldProfile);
-          alert("Ocorreu um erro ao salvar as alterações. Tente novamente.");
+          addToast({ type: 'error', message: "Ocorreu um erro ao salvar as alterações. Tente novamente." });
       }
   };
 
@@ -442,8 +443,16 @@ function App() {
   
   const matches = useMemo(() => {
     // People who liked me, but I haven't actioned yet
-    return allOtherUsers.filter(u => likedMe.includes(u.id) && !likedProfiles.includes(u.id) && !passedProfiles.includes(u.id));
-  }, [allOtherUsers, likedMe, likedProfiles, passedProfiles]);
+    if (!currentUserProfile) return [];
+
+    return allOtherUsers.filter(u => 
+      u.name && u.age && // Garante que o perfil está minimamente completo
+      likedMe.includes(u.id) && 
+      !likedProfiles.includes(u.id) && 
+      !passedProfiles.includes(u.id) &&
+      currentUserProfile.seeking?.includes(u.gender) // Garante que o gênero é o que o usuário procura
+    );
+  }, [allOtherUsers, likedMe, likedProfiles, passedProfiles, currentUserProfile]);
 
   const sentLikesProfiles = useMemo(() => {
     // People I have liked, sorted by most recent like
@@ -708,20 +717,20 @@ function App() {
   const handleSuperLike = async () => {
     if (!currentUserProfile) return;
     if (!currentUserProfile.isPremium) {
-      alert("A Super Conexão é um recurso exclusivo para usuários Premium.");
+      addToast({ type: 'info', message: "A Super Conexão é um recurso exclusivo para usuários Premium." });
       return;
     }
     if ((currentUserProfile.superLikesRemaining ?? 0) > 0) {
       await updateCurrentUserProfile({ superLikesRemaining: (currentUserProfile.superLikesRemaining ?? 1) - 1 });
       executeLike(true);
     } else {
-      alert("Você não tem mais Super Conexões. Elas renovam semanalmente.");
+      addToast({ type: 'info', message: "Você não tem mais Super Conexões. Elas renovam semanalmente." });
     }
   };
 
   const handleRewind = () => {
     if (!currentUserProfile?.isPremium) {
-        alert("Voltar é um recurso Premium!");
+        addToast({ type: 'info', message: "Voltar é um recurso Premium!" });
         return;
     }
     if (currentIndex > 0 || passedProfiles.length > 0) {
@@ -750,7 +759,7 @@ function App() {
   
   const handleConfirmAccountDeletion = async (feedback: Omit<DeletionFeedback, 'userId'>) => {
       console.log("Feedback de exclusão recebido:", feedback);
-      alert("Sua conta foi deletada. Sentiremos sua falta!");
+      addToast({ type: 'success', message: "Sua conta foi deletada. Sentiremos sua falta!" });
       await handleSignOut();
   };
 
@@ -758,9 +767,9 @@ function App() {
     if (currentUserProfile?.isPremium && (currentUserProfile.boostsRemaining ?? 0) > 0) {
         openModal('boost_confirm');
     } else if (!currentUserProfile?.isPremium) {
-        alert("Impulso é um recurso Premium.");
+        addToast({ type: 'info', message: "Impulso é um recurso Premium." });
     } else {
-        alert("Você não tem mais Impulsos. Eles renovam semanalmente.");
+        addToast({ type: 'info', message: "Você não tem mais Impulsos. Eles renovam semanalmente." });
     }
   };
 
@@ -774,7 +783,7 @@ function App() {
      });
      setBoostTimeRemaining(BOOST_DURATION);
      closeModal();
-     alert("Impulso ativado! Seu perfil será destacado por 60 minutos.");
+     addToast({ type: 'success', message: "Impulso ativado! Seu perfil será destacado por 60 minutos." });
   };
 
   const handleSelectChat = (user: UserProfile) => {
@@ -983,7 +992,7 @@ function App() {
         />;
       case 'block':
         if (!userToBlockOrReport) return null;
-        return <BlockUserModal profile={userToBlockOrReport} onClose={closeModal} onConfirm={() => { alert(`Blocked ${userToBlockOrReport.name}`); closeModal(); handlePass(); }} />;
+        return <BlockUserModal profile={userToBlockOrReport} onClose={closeModal} onConfirm={() => { addToast({type: 'info', message: `Bloqueado ${userToBlockOrReport.name}`}); closeModal(); handlePass(); }} />;
       case 'report':
         if (!userToBlockOrReport || !currentUserProfile) return null;
         return <ReportUserModal
@@ -1001,7 +1010,7 @@ function App() {
 
                     if (uploadError) {
                         console.error("Error uploading evidence:", uploadError);
-                        alert("Falha ao enviar uma das evidências. A denúncia não foi enviada.");
+                        addToast({ type: 'error', message: "Falha ao enviar uma das evidências. A denúncia não foi enviada."});
                         return false;
                     }
 
@@ -1028,7 +1037,7 @@ function App() {
 
                 if (reportError) {
                     console.error("Error submitting report:", reportError);
-                    alert("Falha ao enviar denúncia. Tente novamente.");
+                    addToast({ type: 'error', message: "Falha ao enviar denúncia. Tente novamente."});
                     return false;
                 }
                 
@@ -1048,15 +1057,6 @@ function App() {
         if(!currentUserProfile) return null;
         return <HelpAndSupportScreen onClose={closeModal} currentUserProfile={currentUserProfile} />;
       case 'sales': return <SalesPage onClose={closeModal} />;
-      case 'verification_prompt': return <VerificationModal onClose={closeModal} onStartVerification={() => openModal('selfie_verification')} />;
-      case 'selfie_verification': return <SelfieVerification 
-        onBack={closeModal} 
-        onComplete={(selfie) => {
-            // Optimistically update UI
-            setCurrentUserProfile(prev => prev ? { ...prev, isVerified: true } : null);
-            alert('Verificação enviada! (Simulado)');
-            closeModal(); 
-      }} />;
       case 'face_verification_prompt': 
         if(!currentUserProfile) return null;
         return <FaceVerificationModal 
@@ -1123,6 +1123,7 @@ function App() {
 
   return (
     <>
+      <ToastContainer />
       {renderContent()}
       {matchedUser && currentUserProfile && <MatchModal matchedUser={matchedUser} currentUserPhoto={currentUserProfile.photos[0] || ''} onClose={() => setMatchedUser(null)} onStartChat={() => { setActiveChat(matchedUser); setMatchedUser(null); setActiveView('messages'); }} />}
       {renderModal()}

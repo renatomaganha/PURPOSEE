@@ -5,6 +5,7 @@ import { VerifiedBadgeIcon } from './icons/VerifiedBadgeIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { supabase } from '../lib/supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useToast } from '../contexts/ToastContext';
 
 
 interface ChatScreenProps {
@@ -22,6 +23,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ match, currentUserProfil
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { t } = useLanguage();
+  const { addToast } = useToast();
   
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
@@ -126,6 +128,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ match, currentUserProfil
     
     if (error) {
         console.error("Error sending message:", "Message:", error.message, "Details:", error.details, "Code:", error.code);
+        addToast({ type: 'error', message: 'Erro ao enviar a mensagem. Tente novamente.' });
         setNewMessage(messageText); // Restore text on error
     }
   };
@@ -182,7 +185,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ match, currentUserProfil
         setNewMessage(text);
     } catch (error) {
         console.error("Error generating suggestion:", error instanceof Error ? error.message : error);
-        setNewMessage("Não foi possível gerar uma sugestão. Tente novamente.");
+        setNewMessage("");
+        addToast({ type: 'error', message: "Não foi possível gerar uma sugestão. Tente novamente." });
     } finally {
         setIsGenerating(false);
     }

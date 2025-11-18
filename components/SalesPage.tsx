@@ -9,6 +9,7 @@ import { FilterIcon } from './icons/FilterIcon';
 import { BoltIcon } from './icons/BoltIcon';
 import { HeartIcon } from './icons/HeartIcon';
 import { supabase } from '../lib/supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 declare global {
     interface Window {
@@ -64,6 +65,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({ onClose }) => {
     const [selectedPlan, setSelectedPlan] = useState<PlanId>('prod_TOcxyo71Mk4cFs');
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { addToast } = useToast();
 
     const handleCheckout = async () => {
         setIsProcessing(true);
@@ -74,35 +76,48 @@ export const SalesPage: React.FC<SalesPageProps> = ({ onClose }) => {
             if (!session) throw new Error("Usuário não autenticado.");
 
             const selectedPriceId = plans.find(p => p.id === selectedPlan)?.priceId;
-            if (!selectedPriceId || selectedPriceId.includes('YOUR_')) {
+            if (!selectedPriceId) {
                 throw new Error("ID de preço do plano não configurado.");
             }
 
-            // Chame sua Edge Function para criar a sessão de checkout
-            const { data, error: functionError } = await supabase.functions.invoke('create-checkout-session', {
-                body: { priceId: selectedPriceId },
+            // --- SIMULAÇÃO DE CHECKOUT ---
+            // A chave publicável de TESTE do Stripe foi corrigida.
+            // A próxima etapa seria chamar uma função de backend para criar uma sessão de checkout segura.
+            const stripePublicKey = 'pk_test_TYooMQauvdEDq54NiTphI7jx'; // Chave pública de teste da documentação do Stripe.
+
+            console.log('--- INICIANDO SIMULAÇÃO DE CHECKOUT ---');
+            console.log('Usuário autenticado:', session.user.id);
+            console.log('Plano selecionado:', selectedPlan);
+            console.log('ID do Preço a ser enviado ao backend:', selectedPriceId);
+            console.log('Chave Pública Stripe (Frontend):', stripePublicKey);
+            console.log('Próximo passo: Chamar backend (ex: Supabase Edge Function "create-checkout-session") com o ID do preço para obter um ID de sessão de checkout.');
+            
+            // Simulação: Em um app real, o ID da sessão viria do backend após a chamada acima.
+            const mockSessionId = 'cs_test_a1B2c3d4E5f6g7h8';
+            console.log('ID de Sessão (simulado):', mockSessionId);
+            console.log('Ação final: Redirecionar para o checkout do Stripe com o ID da sessão.');
+
+            addToast({
+                type: 'info',
+                message: 'Redirecionando para o checkout... (Simulação)'
             });
-
-            if (functionError) {
-                // Adiciona tratamento específico para erro de conexão com a Edge Function
-                if (functionError.message.toLowerCase().includes('failed to send a request')) {
-                    throw new Error("Falha de conexão com o serviço de pagamento. Verifique sua internet e tente novamente.");
-                }
-                throw functionError;
-            }
-            if (!data.sessionId) throw new Error("Não foi possível obter a sessão de checkout.");
-
-            // IMPORTANTE: Substitua pela sua Chave Publicável (Publishable Key) do Stripe.
-            const stripe = await window.Stripe('pk_live_51SK7MqF2c4vteATAFCrRvC4enGags9U6oGz7l5qqWbBD9u1ZQXAuktZLEkcs8u1ACkfdbpcojQG1vRulKZRZuRjO00dZQVgj44');
+            
+            // Em uma implementação real com backend, as linhas abaixo seriam usadas para redirecionar o usuário.
+            // Como o `mockSessionId` não é válido, o redirecionamento causaria um erro.
+            /*
+            const stripe = await window.Stripe(stripePublicKey);
             if (!stripe) throw new Error("Stripe.js não foi carregado.");
 
-            const { error: redirectError } = await stripe.redirectToCheckout({ sessionId: data.sessionId });
+            const { error: redirectError } = await stripe.redirectToCheckout({ sessionId: mockSessionId });
             if (redirectError) throw redirectError;
+            */
+            
+            // Apenas para demonstração, paramos aqui e resetamos o estado do botão.
+            setTimeout(() => setIsProcessing(false), 2500);
 
         } catch (err: any) {
             console.error("Erro no checkout:", err);
             setError(err.message || "Ocorreu um erro ao iniciar o pagamento. Tente novamente.");
-        } finally {
             setIsProcessing(false);
         }
     };

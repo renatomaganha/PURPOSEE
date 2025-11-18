@@ -7,8 +7,9 @@ import { supabase } from '../lib/supabaseClient';
 import { ArrowPathIcon } from './icons/ArrowPathIcon';
 import { CameraIcon } from './icons/CameraIcon';
 import { XIcon } from './icons/XIcon';
-// FIX: Imported missing VideoCameraSolidIcon component.
 import { VideoCameraSolidIcon } from './icons/VideoCameraSolidIcon';
+import { ArrowUturnRightIcon } from './icons/ArrowUturnRightIcon';
+import { CheckIcon } from './icons/CheckIcon';
 
 
 interface FaceVerificationProps {
@@ -20,16 +21,17 @@ interface FaceVerificationProps {
 type VerificationStep = 'instructions' | 'capture' | 'analyzing' | 'success' | 'failure';
 type LivenessChallenge = 'center' | 'smile' | 'turn_right' | 'done';
 
-const challengePrompts: Record<LivenessChallenge, string> = {
+const challengePrompts: Record<LivenessChallenge, React.ReactNode> = {
     center: "Centralize seu rosto no círculo",
-    smile: "Agora, sorria!",
-    turn_right: "Vire seu rosto para a direita",
+    smile: <span className="flex items-center gap-2"><FaceSmileIcon className="w-6 h-6"/> Agora, sorria!</span>,
+    turn_right: <span className="flex items-center gap-2"><ArrowUturnRightIcon className="w-6 h-6"/> Vire seu rosto para a direita</span>,
     done: "Ótimo! Capturando..."
 };
 
 export const FaceVerification: React.FC<FaceVerificationProps> = ({ userProfile, onBack, onComplete }) => {
     const [step, setStep] = useState<VerificationStep>('instructions');
     const [challenge, setChallenge] = useState<LivenessChallenge>('center');
+    const [feedback, setFeedback] = useState<string | null>(null);
     const [imageSrc, setImageSrc] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -89,20 +91,33 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({ userProfile,
     useEffect(() => {
         if (step !== 'capture' || challenge === 'done') return;
 
-        // FIX: Replaced NodeJS.Timeout with ReturnType<typeof setTimeout> for browser compatibility.
-        let timer: ReturnType<typeof setTimeout>;
+        let challengeTimer: ReturnType<typeof setTimeout>;
+        let feedbackTimer: ReturnType<typeof setTimeout>;
+
+        const setNextChallenge = (next: LivenessChallenge) => {
+            setFeedback("Ótimo!");
+            feedbackTimer = setTimeout(() => {
+                setFeedback(null);
+                setChallenge(next);
+            }, 800);
+        };
+
         if (challenge === 'center') {
-            timer = setTimeout(() => setChallenge('smile'), 2500);
+            challengeTimer = setTimeout(() => setNextChallenge('smile'), 2500);
         } else if (challenge === 'smile') {
-            timer = setTimeout(() => setChallenge('turn_right'), 2500);
+            challengeTimer = setTimeout(() => setNextChallenge('turn_right'), 2500);
         } else if (challenge === 'turn_right') {
-            timer = setTimeout(() => {
+            challengeTimer = setTimeout(() => {
+                setFeedback(null);
                 setChallenge('done');
                 handleCapture();
             }, 2000);
         }
 
-        return () => { if (timer) clearTimeout(timer) };
+        return () => { 
+            if (challengeTimer) clearTimeout(challengeTimer);
+            if (feedbackTimer) clearTimeout(feedbackTimer);
+        };
     }, [step, challenge, handleCapture]);
 
 
@@ -185,7 +200,11 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({ userProfile,
                             </div>
                         </div>
                         <h2 className="text-2xl font-bold mb-4">Verificação de Autenticidade</h2>
-                        <p className="max-w-md mb-8 text-slate-300">Vamos confirmar que é você. Siga as instruções na tela. O processo é rápido e automático.</p>
+                        <ul className="text-left text-sm text-slate-300 max-w-md mb-8 space-y-2 list-disc list-inside">
+                            <li>Encontre um local bem iluminado.</li>
+                            <li>Remova óculos, chapéus ou qualquer acessório que cubra o rosto.</li>
+                            <li>Siga as instruções que aparecerão na tela.</li>
+                        </ul>
                         {error && <p className="bg-red-500/20 text-red-300 p-3 rounded-md mb-4">{error}</p>}
                         <button onClick={() => setStep('capture')} className="w-full max-w-xs bg-sky-500 font-bold py-3 rounded-full">Começar</button>
                     </>
@@ -194,12 +213,21 @@ export const FaceVerification: React.FC<FaceVerificationProps> = ({ userProfile,
             case 'capture':
                 return (
                     <div className="w-full max-w-sm mx-auto flex flex-col items-center">
-                        <div className="relative w-72 h-72 rounded-full overflow-hidden mb-6 border-4 border-sky-400 bg-black">
+                        <div className={`relative w-72 h-72 rounded-full overflow-hidden mb-6 border-4 bg-black transition-colors duration-300 ${feedback ? 'border-green-400' : 'border-sky-400'}`}>
                             <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]"></video>
+                             {feedback && (
+                                <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                                    <CheckIcon className="w-16 h-16 text-white"/>
+                                </div>
+                            )}
                         </div>
-                        <p className="font-bold text-lg h-12 flex items-center justify-center transition-opacity duration-500">
-                           {challengePrompts[challenge]}
-                        </p>
+                        <div className="font-bold text-lg h-12 flex items-center justify-center transition-opacity duration-500">
+                           {feedback ? (
+                               <span className="text-green-300">{feedback}</span>
+                           ) : (
+                               challengePrompts[challenge]
+                           )}
+                        </div>
                     </div>
                 );
 

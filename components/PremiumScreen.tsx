@@ -10,6 +10,7 @@ import { StarIcon } from './icons/StarIcon';
 import { VerifiedBadgeIcon } from './icons/VerifiedBadgeIcon';
 import { Tooltip } from './Tooltip';
 import { InformationCircleIcon } from './icons/InformationCircleIcon';
+import { useToast } from '../contexts/ToastContext';
 
 
 interface PremiumScreenProps {
@@ -102,14 +103,16 @@ const Toggle: React.FC<{ checked: boolean; onChange: (checked: boolean) => void;
 
 
 export const PremiumScreen: React.FC<PremiumScreenProps> = ({ currentUserProfile, onEditProfile, onNavigateToSales, isPremiumSaleActive, onToggleInvisibleMode, onSignOut }) => {
-    
+    const { addToast } = useToast();
+
     const handleFeatureClick = () => {
-        alert('Este é um recurso Premium! A funcionalidade de upgrade seria exibida aqui.');
+        addToast({ type: 'info', message: 'Este é um recurso Premium! Clique em "Seja Premium" para saber mais.' });
+        onNavigateToSales();
     };
 
     const handleInvisibleToggle = () => {
         if (!currentUserProfile?.isPremium) {
-            alert('Modo Invisível é um recurso Premium. Faça upgrade para ativá-lo!');
+            addToast({ type: 'info', message: 'Modo Invisível é um recurso Premium. Faça upgrade para ativá-lo!' });
             return;
         }
         onToggleInvisibleMode();
