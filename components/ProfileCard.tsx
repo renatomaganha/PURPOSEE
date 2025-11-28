@@ -29,6 +29,7 @@ interface ProfileCardProps {
   onSuperLike: () => void;
   onBlock: () => void;
   onReport: () => void;
+  onGoToSales: () => void;
   distance: number | null;
   matchReason?: string;
 }
@@ -47,7 +48,7 @@ const OverlayInfoPill: React.FC<{ children: React.ReactNode }> = ({ children }) 
   </span>
 );
 
-export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserProfile, onLike, onPass, onRewind, onSuperLike, onBlock, onReport, distance, matchReason }) => {
+export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserProfile, onLike, onPass, onRewind, onSuperLike, onBlock, onReport, onGoToSales, distance, matchReason }) => {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -154,7 +155,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
       }
       
       if (action === 'superlike' && !currentUserProfile.isPremium) {
-        addToast({ type: 'info', message: "A Super Conexão é um recurso exclusivo para usuários Premium." });
+        onGoToSales();
         return;
       }
 
@@ -492,7 +493,6 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
             <div className="relative">
                 <button
                     onClick={() => handleActionClick('superlike')}
-                    disabled={!currentUserProfile.isPremium}
                     className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center text-sky-500 border-2 border-slate-200 hover:scale-110 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:text-slate-400"
                     aria-label={t('superLike')}
                 >

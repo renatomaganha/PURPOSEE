@@ -18,8 +18,7 @@ import { VerifiedBadgeIcon } from './icons/VerifiedBadgeIcon';
 import { CheckBadgeIcon } from './icons/CheckBadgeIcon';
 import { useLanguage } from '../contexts/LanguageContext';
 import { GlobeIcon } from './icons/GlobeIcon';
-import { useToast } from '../contexts/ToastContext';
-
+import { NotificationPermissionModal } from './NotificationPermissionModal';
 
 interface SettingsScreenProps {
     currentUserProfile: UserProfile | null;
@@ -36,6 +35,7 @@ interface SettingsScreenProps {
     onShowSafetyTips: () => void;
     onShowHelpAndSupport: () => void;
     onVerifyProfileRequest: () => void;
+    onGoToSales: () => void;
 }
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
@@ -103,11 +103,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     onShowSafetyTips,
     onShowHelpAndSupport,
     onVerifyProfileRequest,
+    onGoToSales,
 }) => {
     const [notificationStatus, setNotificationStatus] = useState<NotificationPermission | 'loading'>('loading');
     const [isSubscribed, setIsSubscribed] = useState(false);
+    const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
     const { language, setLanguage, t } = useLanguage();
-    const { addToast } = useToast();
     
     useEffect(() => {
         getSubscriptionState().then(state => {
@@ -116,21 +117,37 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         });
     }, []);
 
+    const handleAllowNotifications = async () => {
+        setIsPermissionModalOpen(false);
+        setNotificationStatus('loading');
+        try {
+            await subscribeUserToPush();
+            setIsSubscribed(true);
+            setNotificationStatus('granted');
+        } catch (error) {
+            console.error("Falha ao ativar notificações:", error instanceof Error ? error.message : error);
+            setNotificationStatus(Notification.permission);
+        }
+    };
+
     const handleNotificationToggle = async () => {
+        if (notificationStatus === 'default') {
+            setIsPermissionModalOpen(true);
+            return;
+        }
+
         setNotificationStatus('loading');
         if (isSubscribed) {
             await unsubscribeUserFromPush();
             setIsSubscribed(false);
-            // A permissão continua 'granted', apenas a inscrição é removida
             setNotificationStatus(Notification.permission);
-        } else {
+        } else { // This case now only happens when permission is 'granted' but not subscribed
             try {
                 await subscribeUserToPush();
                 setIsSubscribed(true);
                 setNotificationStatus('granted');
             } catch (error) {
-                console.error("Falha ao ativar notificações:", error instanceof Error ? error.message : error);
-                // Atualiza o status caso o usuário negue a permissão no prompt
+                console.error("Falha ao re-inscrever:", error instanceof Error ? error.message : error);
                 setNotificationStatus(Notification.permission);
             }
         }
@@ -153,7 +170,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     
     const handleInvisibleToggle = () => {
         if (!currentUserProfile?.isPremium) {
-            addToast({ type: 'info', message: 'Modo Invisível é um recurso Premium. Faça upgrade para ativá-lo!' });
+            onGoToSales();
             return;
         }
         onToggleInvisibleMode();
@@ -163,124 +180,131 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     const canVerify = faceVerificationStatus === VerificationStatus.NOT_VERIFIED || faceVerificationStatus === VerificationStatus.REJECTED;
 
     return (
-        <div className="fixed inset-0 z-30 bg-slate-100 flex flex-col animate-slide-in-right">
-            <header className="bg-white p-4 flex items-center shadow-sm sticky top-0 z-20">
-                <button onClick={onClose} className="p-2 -ml-2 mr-2">
-                    <ArrowLeftIcon className="w-6 h-6 text-slate-600" />
-                </button>
-                <h1 className="text-xl font-bold text-slate-800">{t('settings')}</h1>
-            </header>
-
-            <main className="flex-grow overflow-y-auto p-4 pb-24">
-                <Section title={t('account')}>
-                    <SettingItem icon={<UserCircleIcon className="w-6 h-6" />} title={t('editProfile')} subtitle={t('editProfileDesc')} onClick={onEditProfile} />
-                    <SettingItem
-                        icon={<VerifiedBadgeIcon className="w-6 h-6" />}
-                        title="Verificação de Identidade (Selfie)"
-                        subtitle={
-                            faceVerificationStatus === VerificationStatus.REJECTED 
-                            ? "Sua verificação foi rejeitada. Tente novamente."
-                            : "Garanta a segurança da comunidade e ganhe um selo."
-                        }
-                        onClick={canVerify ? onVerifyProfileRequest : undefined}
-                        action={
-                           canVerify ? (
-                                <span className="text-sm font-bold text-sky-600">{t('verifyNow')}</span>
-                           ) : (
-                               <VerificationStatusBadge status={faceVerificationStatus} />
-                           )
-                        }
-                    />
-                    <SettingItem icon={<CreditCardIcon className="w-6 h-6" />} title={t('manageSubscription')} subtitle={currentUserProfile?.isPremium ? t('manageSubscriptionDescPremium') : t('manageSubscriptionDescFree')} onClick={() => addToast({type: 'info', message: "A gestão de assinaturas será implementada aqui."})} />
-                </Section>
-                
-                <Section title={t('languageSettings')}>
-                     <SettingItem 
-                        icon={<GlobeIcon className="w-6 h-6" />} 
-                        title={t('language')} 
-                        subtitle={t('languageSubtitle')}
-                        action={
-                            <select 
-                                value={language} 
-                                onChange={(e) => setLanguage(e.target.value as 'pt' | 'en')}
-                                className="border-slate-300 rounded-md text-sm p-1"
-                            >
-                                <option value="pt">{t('languagePortuguese')}</option>
-                                <option value="en">{t('languageEnglish')}</option>
-                            </select>
-                        }
-                    />
-                </Section>
-
-                <Section title={t('visibility')}>
-                    <SettingItem
-                        icon={<EyeSlashIcon className="w-6 h-6" />}
-                        title={
-                           <div className="flex items-center gap-2">
-                                <span>{t('invisibleMode')}</span>
-                                {!currentUserProfile?.isPremium && (
-                                    <Tooltip text={t('invisibleModeTooltip')}>
-                                        <InformationCircleIcon className="w-4 h-4 text-sky-500 cursor-help" />
-                                    </Tooltip>
-                                )}
-                            </div>
-                        }
-                        subtitle={t('invisibleModeDesc')}
-                        action={<Toggle checked={currentUserProfile?.isInvisibleMode || false} onChange={handleInvisibleToggle} disabled={!currentUserProfile?.isPremium} />}
-                    />
-                    <SettingItem
-                        icon={<PauseIcon className="w-6 h-6" />}
-                        title={t('pauseAccount')}
-                        subtitle={currentUserProfile?.isPaused ? t('pauseAccountDescPaused') : t('pauseAccountDescActive')}
-                        action={<Toggle checked={currentUserProfile?.isPaused || false} onChange={onTogglePauseAccount} />}
-                    />
-                </Section>
-                
-                <Section title={t('notifications')}>
-                    <SettingItem
-                        icon={<BellIcon className="w-6 h-6" />}
-                        title={t('newAlerts')}
-                        subtitle={buttonState.subtitle}
-                        action={
-                             <button
-                                onClick={handleNotificationToggle}
-                                disabled={buttonState.disabled}
-                                className={`text-sm font-bold py-1 px-3 rounded-full ${buttonState.disabled ? 'bg-slate-200 text-slate-500' : 'bg-sky-500 text-white'}`}
-                            >
-                                {buttonState.text}
-                            </button>
-                        }
-                    />
-                </Section>
-                
-                 <Section title={t('legal')}>
-                    <SettingItem icon={<ShieldCheckIcon className="w-6 h-6" />} title={t('privacyPolicy')} onClick={onShowPrivacyPolicy} />
-                    <SettingItem icon={<BookOpenIcon className="w-6 h-6" />} title={t('termsOfUse')} onClick={onShowTermsOfUse} />
-                    <SettingItem icon={<BookOpenIcon className="w-6 h-6" />} title={t('cookiePolicy')} onClick={onShowCookiePolicy} />
-                </Section>
-                
-                <Section title={t('community')}>
-                    <SettingItem icon={<BookOpenIcon className="w-6 h-6" />} title={t('communityRules')} onClick={onShowCommunityRules} />
-                    <SettingItem icon={<ShieldCheckIcon className="w-6 h-6" />} title={t('safetyTips')} onClick={onShowSafetyTips} />
-                </Section>
-
-                 <Section title={t('support')}>
-                    <SettingItem icon={<QuestionMarkCircleIcon className="w-6 h-6" />} title={t('helpAndSupport')} onClick={onShowHelpAndSupport} />
-                </Section>
-                
-                 <Section title="Logout & Exclusão">
-                    <SettingItem icon={<TrashIcon className="w-6 h-6 text-red-500" />} title={<span className="text-red-600">{t('deleteAccount')}</span>} onClick={onDeleteAccountRequest} />
-                </Section>
-
-                <div className="mt-8 text-center">
-                    <button
-                        onClick={onSignOut}
-                        className="text-slate-500 font-semibold hover:text-red-600 transition-colors"
-                    >
-                        {t('signOut')}
+        <>
+            <div className="fixed inset-0 z-30 bg-slate-100 flex flex-col animate-slide-in-right">
+                <header className="bg-white p-4 flex items-center shadow-sm sticky top-0 z-20">
+                    <button onClick={onClose} className="p-2 -ml-2 mr-2">
+                        <ArrowLeftIcon className="w-6 h-6 text-slate-600" />
                     </button>
-                </div>
-            </main>
-        </div>
+                    <h1 className="text-xl font-bold text-slate-800">{t('settings')}</h1>
+                </header>
+
+                <main className="flex-grow overflow-y-auto p-4 pb-24">
+                    <Section title={t('account')}>
+                        <SettingItem icon={<UserCircleIcon className="w-6 h-6" />} title={t('editProfile')} subtitle={t('editProfileDesc')} onClick={onEditProfile} />
+                        <SettingItem
+                            icon={<VerifiedBadgeIcon className="w-6 h-6" />}
+                            title="Verificação de Identidade (Selfie)"
+                            subtitle={
+                                faceVerificationStatus === VerificationStatus.REJECTED 
+                                ? "Sua verificação foi rejeitada. Tente novamente."
+                                : "Garanta a segurança da comunidade e ganhe um selo."
+                            }
+                            onClick={canVerify ? onVerifyProfileRequest : undefined}
+                            action={
+                            canVerify ? (
+                                    <span className="text-sm font-bold text-sky-600">{t('verifyNow')}</span>
+                            ) : (
+                                <VerificationStatusBadge status={faceVerificationStatus} />
+                            )
+                            }
+                        />
+                        <SettingItem icon={<CreditCardIcon className="w-6 h-6" />} title={t('manageSubscription')} subtitle={currentUserProfile?.isPremium ? t('manageSubscriptionDescPremium') : t('manageSubscriptionDescFree')} onClick={onGoToSales} />
+                    </Section>
+                    
+                    <Section title={t('languageSettings')}>
+                        <SettingItem 
+                            icon={<GlobeIcon className="w-6 h-6" />} 
+                            title={t('language')} 
+                            subtitle={t('languageSubtitle')}
+                            action={
+                                <select 
+                                    value={language} 
+                                    onChange={(e) => setLanguage(e.target.value as 'pt' | 'en')}
+                                    className="border-slate-300 rounded-md text-sm p-1"
+                                >
+                                    <option value="pt">{t('languagePortuguese')}</option>
+                                    <option value="en">{t('languageEnglish')}</option>
+                                </select>
+                            }
+                        />
+                    </Section>
+
+                    <Section title={t('visibility')}>
+                        <SettingItem
+                            icon={<EyeSlashIcon className="w-6 h-6" />}
+                            title={
+                            <div className="flex items-center gap-2">
+                                    <span>{t('invisibleMode')}</span>
+                                    {!currentUserProfile?.isPremium && (
+                                        <Tooltip text={t('invisibleModeTooltip')}>
+                                            <InformationCircleIcon className="w-4 h-4 text-sky-500 cursor-help" />
+                                        </Tooltip>
+                                    )}
+                                </div>
+                            }
+                            subtitle={t('invisibleModeDesc')}
+                            action={<Toggle checked={currentUserProfile?.isInvisibleMode || false} onChange={handleInvisibleToggle} disabled={!currentUserProfile?.isPremium} />}
+                        />
+                        <SettingItem
+                            icon={<PauseIcon className="w-6 h-6" />}
+                            title={t('pauseAccount')}
+                            subtitle={currentUserProfile?.isPaused ? t('pauseAccountDescPaused') : t('pauseAccountDescActive')}
+                            action={<Toggle checked={currentUserProfile?.isPaused || false} onChange={onTogglePauseAccount} />}
+                        />
+                    </Section>
+                    
+                    <Section title={t('notifications')}>
+                        <SettingItem
+                            icon={<BellIcon className="w-6 h-6" />}
+                            title={t('newAlerts')}
+                            subtitle={buttonState.subtitle}
+                            action={
+                                <button
+                                    onClick={handleNotificationToggle}
+                                    disabled={buttonState.disabled}
+                                    className={`text-sm font-bold py-1 px-3 rounded-full ${buttonState.disabled ? 'bg-slate-200 text-slate-500' : 'bg-sky-500 text-white'}`}
+                                >
+                                    {buttonState.text}
+                                </button>
+                            }
+                        />
+                    </Section>
+                    
+                    <Section title={t('legal')}>
+                        <SettingItem icon={<ShieldCheckIcon className="w-6 h-6" />} title={t('privacyPolicy')} onClick={onShowPrivacyPolicy} />
+                        <SettingItem icon={<BookOpenIcon className="w-6 h-6" />} title={t('termsOfUse')} onClick={onShowTermsOfUse} />
+                        <SettingItem icon={<BookOpenIcon className="w-6 h-6" />} title={t('cookiePolicy')} onClick={onShowCookiePolicy} />
+                    </Section>
+                    
+                    <Section title={t('community')}>
+                        <SettingItem icon={<BookOpenIcon className="w-6 h-6" />} title={t('communityRules')} onClick={onShowCommunityRules} />
+                        <SettingItem icon={<ShieldCheckIcon className="w-6 h-6" />} title={t('safetyTips')} onClick={onShowSafetyTips} />
+                    </Section>
+
+                    <Section title={t('support')}>
+                        <SettingItem icon={<QuestionMarkCircleIcon className="w-6 h-6" />} title={t('helpAndSupport')} onClick={onShowHelpAndSupport} />
+                    </Section>
+                    
+                    <Section title="Logout & Exclusão">
+                        <SettingItem icon={<TrashIcon className="w-6 h-6 text-red-500" />} title={<span className="text-red-600">{t('deleteAccount')}</span>} onClick={onDeleteAccountRequest} />
+                    </Section>
+
+                    <div className="mt-8 text-center">
+                        <button
+                            onClick={onSignOut}
+                            className="text-slate-500 font-semibold hover:text-red-600 transition-colors"
+                        >
+                            {t('signOut')}
+                        </button>
+                    </div>
+                </main>
+            </div>
+            <NotificationPermissionModal
+                isOpen={isPermissionModalOpen}
+                onClose={() => setIsPermissionModalOpen(false)}
+                onAllow={handleAllowNotifications}
+            />
+        </>
     );
 };

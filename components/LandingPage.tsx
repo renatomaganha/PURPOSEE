@@ -27,7 +27,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ logoUrl, onEnter, onSh
   const { t } = useLanguage();
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white flex flex-col items-center justify-between p-6">
+    <div className="min-h-screen w-full bg-gradient-to-b from-slate-900 to-slate-800 text-white flex flex-col items-center justify-between p-6">
       <div className="flex-grow flex flex-col items-center justify-center text-center">
         <DynamicLogo logoUrl={logoUrl} className="w-28 h-28 drop-shadow-[0_0_8px_rgba(200,200,210,0.2)]" />
         <h1 className="text-4xl font-bold mt-4">{t('landingTitle')}</h1>
@@ -59,7 +59,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ logoUrl, onEnter, onSh
         >
           {t('enterOrCreate')}
         </button>
-        <p className="text-xs text-slate-500 mt-4 text-center">
+        <p className="text-xs text-slate-500 mt-8 text-center">
             {t('byContinuing')}{' '}
             <button onClick={onShowTermsOfUse} className="underline hover:text-white">{t('termsOfUse')}</button> e{' '}
             <button onClick={onShowPrivacyPolicy} className="underline hover:text-white">{t('privacyPolicy')}</button>.

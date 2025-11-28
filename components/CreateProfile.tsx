@@ -11,6 +11,7 @@ import { CameraCapture } from './CameraCapture';
 import { FaceVerification } from './FaceVerification';
 import { CheckBadgeIcon } from './icons/CheckBadgeIcon';
 import { ArrowPathIcon } from './icons/ArrowPathIcon';
+import { useToast } from '../contexts/ToastContext';
 
 
 const allChurchFrequencies = Object.values(ChurchFrequency);
@@ -147,7 +148,7 @@ const ProgressBar: React.FC<{ step: number; totalSteps: number }> = ({ step, tot
 );
 
 interface CreateProfileProps {
-    onProfileCreated: (profile: UserProfile) => void;
+    onProfileCreated: (profile: UserProfile, wasEditing?: boolean) => void;
     isEditing?: boolean;
     onClose?: () => void;
     denominations: Tag[];
@@ -155,6 +156,15 @@ interface CreateProfileProps {
     interests: Tag[];
     languages: Tag[];
 }
+
+const FormSection: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className }) => (
+    <div className={`w-full bg-white p-6 rounded-lg shadow-sm mb-6 ${className}`}>
+        <h2 className="text-xl font-bold mb-4 border-b pb-2 text-slate-800">{title}</h2>
+        <div className="space-y-4">
+            {children}
+        </div>
+    </div>
+);
 
 export const CreateProfile: React.FC<CreateProfileProps> = ({ 
     onProfileCreated, 
@@ -167,6 +177,7 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
 }) => {
     const { user } = useAuth();
     const { t } = useLanguage();
+    const { addToast } = useToast();
     const [step, setStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -349,7 +360,7 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                  setIsGettingLocation(false);
             },
             (err) => {
-                console.error("Geolocation error:", err);
+                console.error("Geolocation error:", err.message);
                 setIsGettingLocation(false);
                 if (err.code === err.PERMISSION_DENIED) {
                     setLocationError(t('locationPermissionDenied'));
@@ -387,6 +398,19 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
 
     const handleToggleList = (listName: 'interests' | 'keyValues' | 'languages', value: string) => {
         const list = profileData[listName] as string[] || [];
+
+        // Logic to enforce limits when adding an item
+        if (!list.includes(value)) {
+            if (listName === 'interests' && list.length >= 3) {
+                addToast({ type: 'info', message: 'Você pode selecionar no máximo 3 interesses.' });
+                return;
+            }
+            if (listName === 'keyValues' && list.length >= 3) {
+                addToast({ type: 'info', message: 'Você pode selecionar no máximo 3 valores de fé.' });
+                return;
+            }
+        }
+        
         const newList = list.includes(value) ? list.filter(item => item !== value) : [...list, value];
         setProfileData({ ...profileData, [listName]: newList });
     };
@@ -420,7 +444,7 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
             console.error("Error saving profile:", upsertError);
             setError("Ocorreu um erro ao salvar seu perfil. Verifique os dados e tente novamente.");
         } else {
-            onProfileCreated(dbProfileToAppProfile(data) as UserProfile);
+            onProfileCreated(dbProfileToAppProfile(data) as UserProfile, isEditing);
         }
     };
     
@@ -493,15 +517,6 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
             )}
             {!photo && !isUploading && <PhotoIcon className="w-8 h-8 text-slate-400" />}
         </button>
-    );
-    
-    const FormSection: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className }) => (
-        <div className={`w-full bg-white p-6 rounded-lg shadow-sm mb-6 ${className}`}>
-            <h2 className="text-xl font-bold mb-4 border-b pb-2 text-slate-800">{title}</h2>
-            <div className="space-y-4">
-                {children}
-            </div>
-        </div>
     );
 
     if (isEditing) {

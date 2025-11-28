@@ -8,6 +8,7 @@ import { useToast } from '../contexts/ToastContext';
 interface FilterScreenProps {
   onClose: () => void;
   onApply: (filters: FilterState) => void;
+  onGoToSales: () => void;
   currentFilters: FilterState;
   isPremiumUser: boolean;
   denominations: Tag[];
@@ -49,10 +50,9 @@ const SimpleButton: React.FC<{ label: string; isSelected: boolean; onClick: () =
 );
 
 
-export const FilterScreen: React.FC<FilterScreenProps> = ({ onClose, onApply, currentFilters, isPremiumUser, denominations }) => {
+export const FilterScreen: React.FC<FilterScreenProps> = ({ onClose, onApply, onGoToSales, currentFilters, isPremiumUser, denominations }) => {
     const [filters, setFilters] = useState<FilterState>(currentFilters);
     const { t } = useLanguage();
-    const { addToast } = useToast();
     
     const MIN_AGE = 18;
     const MAX_AGE = 60;
@@ -75,7 +75,7 @@ export const FilterScreen: React.FC<FilterScreenProps> = ({ onClose, onApply, cu
 
      const toggleListFilter = <T,>(value: T, list: T[], setList: (newList: T[]) => void) => {
         if (!isPremiumUser) {
-            handlePremiumFeatureClick();
+            onGoToSales();
             return;
         }
         const currentIndex = list.indexOf(value);
@@ -103,8 +103,20 @@ export const FilterScreen: React.FC<FilterScreenProps> = ({ onClose, onApply, cu
         onApply(clearedFilters);
     };
     
-    const handlePremiumFeatureClick = () => {
-        addToast({type: 'info', message: t('premiumFeatureAlert')});
+    const handleVerifiedToggle = () => {
+        if (!isPremiumUser) {
+            onGoToSales();
+            return;
+        }
+        setFilters(f => ({ ...f, verifiedOnly: !f.verifiedOnly }));
+    };
+
+    const handleAdvancedInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!isPremiumUser) {
+            onGoToSales();
+            return;
+        }
+        setFilters(f => ({ ...f, churchName: e.target.value }));
     };
 
     const ageRangePercentage = {
@@ -183,7 +195,7 @@ export const FilterScreen: React.FC<FilterScreenProps> = ({ onClose, onApply, cu
 
                 <div className={`relative ${!isPremiumUser ? 'opacity-50' : ''}`}>
                     {!isPremiumUser && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center" onClick={handlePremiumFeatureClick}>
+                        <div className="absolute inset-0 z-10 flex items-center justify-center" onClick={onGoToSales}>
                             <div className="text-center p-4 bg-white/80 backdrop-blur-sm rounded-lg shadow-lg">
                                 <LockClosedIcon className="w-8 h-8 mx-auto text-amber-500 mb-2" />
                                 <h3 className="font-bold text-slate-800">{t('premiumExclusive')}</h3>
@@ -212,13 +224,7 @@ export const FilterScreen: React.FC<FilterScreenProps> = ({ onClose, onApply, cu
                                 id="churchNameFilter"
                                 placeholder="Digite o nome da igreja..."
                                 value={filters.churchName || ''}
-                                onChange={(e) => {
-                                    if (!isPremiumUser) {
-                                        handlePremiumFeatureClick();
-                                        return;
-                                    }
-                                    setFilters(f => ({ ...f, churchName: e.target.value }))
-                                }}
+                                onChange={handleAdvancedInputChange}
                                 className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 focus:outline-none"
                             />
                         </div>
@@ -260,13 +266,7 @@ export const FilterScreen: React.FC<FilterScreenProps> = ({ onClose, onApply, cu
                         <button
                             role="switch"
                             aria-checked={filters.verifiedOnly}
-                            onClick={() => {
-                                if (!isPremiumUser) {
-                                    handlePremiumFeatureClick();
-                                    return;
-                                }
-                                setFilters(f => ({ ...f, verifiedOnly: !f.verifiedOnly }));
-                            }}
+                            onClick={handleVerifiedToggle}
                             className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-300 ${filters.verifiedOnly ? 'bg-sky-500' : 'bg-slate-300'}`}
                         >
                             <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${filters.verifiedOnly ? 'translate-x-6' : ''}`}></div>

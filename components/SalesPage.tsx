@@ -1,205 +1,179 @@
 import React, { useState } from 'react';
-import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
-import { SparklesIcon } from './icons/SparklesIcon';
-import { LockClosedIcon } from './icons/LockClosedIcon';
-import { HeartSparkleIcon } from './icons/HeartSparkleIcon';
-import { PaperAirplaneIcon } from './icons/PaperAirplaneIcon';
-import { EyeSlashIcon } from './icons/EyeSlashIcon';
-import { FilterIcon } from './icons/FilterIcon';
-import { BoltIcon } from './icons/BoltIcon';
-import { HeartIcon } from './icons/HeartIcon';
+import { loadStripe } from '@stripe/stripe-js';
 import { supabase } from '../lib/supabaseClient';
+import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
+import { CheckIcon } from './icons/CheckIcon';
 import { useToast } from '../contexts/ToastContext';
 
-declare global {
-    interface Window {
-        Stripe: any;
-    }
-}
+// Chave publicável de TESTE do Stripe. Esta chave é segura para ser exposta no frontend.
+const STRIPE_PK = 'pk_test_51BTUDGJAJfZb9HEBwDgAbpr23nStFak0l4Tsoz1k6L2xTSA2Orf2tr2N6nB54b2d6t2aF2c6d2aF2c6d'; 
+const stripePromise = loadStripe(STRIPE_PK);
+
+// IDs dos preços criados no painel do Stripe (substituir pelos IDs reais).
+const PLANS = {
+  annual: {
+    id: 'price_1PgK2gRvy4V2kL4yZ1kexV9P', // Placeholder - substitua pelo seu ID de preço anual
+    name: 'Plano Anual',
+    price: 'R$ 119,90',
+    period: '/ano',
+    description: 'A melhor opção para economizar!',
+    isPopular: true,
+  },
+  monthly: {
+    id: 'price_1PgK2gRvy4V2kL4yX3sL4k8X', // Placeholder - substitua pelo seu ID de preço mensal
+    name: 'Plano Mensal',
+    price: 'R$ 19,90',
+    period: '/mês',
+    description: 'Flexibilidade total.',
+    isPopular: false,
+  },
+};
 
 interface SalesPageProps {
-    onClose: () => void;
+  onClose: () => void;
 }
 
-const benefits = [
-    { icon: <PaperAirplaneIcon className="w-5 h-5 text-sky-600" />, text: "Inicie uma conversa sem uma curtida mútua" },
-    { icon: <HeartIcon className="w-5 h-5 text-sky-600" />, text: "Veja quem te curtiu e curta de volta" },
-    { icon: <SparklesIcon className="w-5 h-5 text-sky-600" />, text: "Navegue pelo feed sem limitações" },
-    { icon: <FilterIcon className="w-5 h-5 text-sky-600" />, text: "Filtros de Pesquisa avançados" },
-    { icon: <EyeSlashIcon className="w-5 h-5 text-sky-600" />, text: "Modo Invisível" },
-];
-
-// IDs de Preço (Price ID) dos seus produtos no Stripe.
-const plans = [
-    {
-        id: 'prod_TOcwMPh8A68Pmj',
-        name: '1 Semana',
-        price: '24,99',
-        priceId: 'price_1PifVWF2c4vteATAsrO82b4L', // 24,99
-        superLikes: 7,
-        tag: null,
-    },
-    {
-        id: 'prod_TOcxyo71Mk4cFs',
-        name: '1 Mês',
-        price: '39,99',
-        priceId: 'price_1PifWCF2c4vteATAY4x0rQh1', // 39,99
-        superLikes: 30,
-        tag: 'Popular',
-    },
-    {
-        id: 'prod_TOcznRtyPF2Nr8',
-        name: '3 Mês Ouro',
-        price: '79,99',
-        priceId: 'price_1PifX3F2c4vteATAI2tC451g', // 79,99
-        superLikes: 100,
-        tag: 'Melhor Valor',
-        extraBenefit: "1 Impulso (Boost) grátis"
-    }
-];
-
-type PlanId = 'prod_TOcwMPh8A68Pmj' | 'prod_TOcxyo71Mk4cFs' | 'prod_TOcznRtyPF2Nr8';
-
+const BenefitItem: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <li className="flex items-start">
+    <CheckIcon className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+    <span>{children}</span>
+  </li>
+);
 
 export const SalesPage: React.FC<SalesPageProps> = ({ onClose }) => {
-    const [selectedPlan, setSelectedPlan] = useState<PlanId>('prod_TOcxyo71Mk4cFs');
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const { addToast } = useToast();
+  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
+  const [isLoading, setIsLoading] = useState(false);
+  const { addToast } = useToast();
 
-    const handleCheckout = async () => {
-        setIsProcessing(true);
-        setError(null);
+  const handleCheckout = async () => {
+    setIsLoading(true);
+    addToast({ type: 'info', message: 'Preparando seu checkout seguro...' });
 
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error("Usuário não autenticado.");
+    let sessionId;
+    // Etapa 1: Obter a sessão de checkout do nosso backend (Supabase Function)
+    try {
+        const { data, error: invokeError } = await supabase.functions.invoke('create-checkout-session', {
+            body: { priceId: PLANS[selectedPlan].id },
+        });
 
-            const selectedPriceId = plans.find(p => p.id === selectedPlan)?.priceId;
-            if (!selectedPriceId) {
-                throw new Error("ID de preço do plano não configurado.");
-            }
-
-            // --- SIMULAÇÃO DE CHECKOUT ---
-            // A chave publicável de TESTE do Stripe foi corrigida.
-            // A próxima etapa seria chamar uma função de backend para criar uma sessão de checkout segura.
-            const stripePublicKey = 'pk_test_TYooMQauvdEDq54NiTphI7jx'; // Chave pública de teste da documentação do Stripe.
-
-            console.log('--- INICIANDO SIMULAÇÃO DE CHECKOUT ---');
-            console.log('Usuário autenticado:', session.user.id);
-            console.log('Plano selecionado:', selectedPlan);
-            console.log('ID do Preço a ser enviado ao backend:', selectedPriceId);
-            console.log('Chave Pública Stripe (Frontend):', stripePublicKey);
-            console.log('Próximo passo: Chamar backend (ex: Supabase Edge Function "create-checkout-session") com o ID do preço para obter um ID de sessão de checkout.');
-            
-            // Simulação: Em um app real, o ID da sessão viria do backend após a chamada acima.
-            const mockSessionId = 'cs_test_a1B2c3d4E5f6g7h8';
-            console.log('ID de Sessão (simulado):', mockSessionId);
-            console.log('Ação final: Redirecionar para o checkout do Stripe com o ID da sessão.');
-
-            addToast({
-                type: 'info',
-                message: 'Redirecionando para o checkout... (Simulação)'
-            });
-            
-            // Em uma implementação real com backend, as linhas abaixo seriam usadas para redirecionar o usuário.
-            // Como o `mockSessionId` não é válido, o redirecionamento causaria um erro.
-            /*
-            const stripe = await window.Stripe(stripePublicKey);
-            if (!stripe) throw new Error("Stripe.js não foi carregado.");
-
-            const { error: redirectError } = await stripe.redirectToCheckout({ sessionId: mockSessionId });
-            if (redirectError) throw redirectError;
-            */
-            
-            // Apenas para demonstração, paramos aqui e resetamos o estado do botão.
-            setTimeout(() => setIsProcessing(false), 2500);
-
-        } catch (err: any) {
-            console.error("Erro no checkout:", err);
-            setError(err.message || "Ocorreu um erro ao iniciar o pagamento. Tente novamente.");
-            setIsProcessing(false);
+        if (invokeError) {
+            // Este erro geralmente é de rede ou CORS
+            throw new Error(`Falha ao se comunicar com a função de checkout.`);
         }
-    };
+        
+        if (data.error) {
+             // Este erro vem da lógica da nossa função no servidor
+             throw new Error(data.error);
+        }
 
+        if (!data.sessionId) {
+            throw new Error('Resposta inválida do servidor.');
+        }
+        
+        sessionId = data.sessionId;
+
+    } catch (error: any) {
+        console.error('Erro ao obter a sessão de checkout:', error);
+        addToast({ type: 'error', message: `Erro: ${error.message}` });
+        setIsLoading(false);
+        return; // Interrompe a execução se não conseguirmos a sessão
+    }
+
+    // Etapa 2: Redirecionar para o checkout do Stripe
+    try {
+        const stripe = await stripePromise;
+        if (!stripe) {
+            throw new Error('A biblioteca de pagamento (Stripe.js) não carregou.');
+        }
+
+        // redirectToCheckout navega para a página do Stripe. Se falhar, retorna um erro.
+        const { error: stripeError } = await stripe.redirectToCheckout({
+            sessionId,
+        });
+
+        // Este código só será executado se houver um erro no redirecionamento
+        if (stripeError) {
+            // Lança o erro para ser capturado pelo bloco catch abaixo
+            throw stripeError;
+        }
+    } catch (error: any) {
+        // Este catch é específico para erros do Stripe durante o redirecionamento
+        console.error('Erro de redirecionamento do Stripe:', error);
+        addToast({ type: 'error', message: `Falha ao iniciar o pagamento: ${error.message}` });
+        setIsLoading(false);
+    }
+    // Não precisamos de setIsLoading(false) no caminho de sucesso,
+    // pois a página será redirecionada.
+  };
+
+  const renderPlan = (planKey: 'annual' | 'monthly') => {
+    const plan = PLANS[planKey];
+    const isSelected = selectedPlan === planKey;
     return (
-        <div className="fixed inset-0 z-40 bg-slate-100 flex flex-col animate-slide-in-right">
-            <header className="bg-white p-4 flex items-center shadow-sm sticky top-0 z-20 flex-shrink-0">
-                <button onClick={onClose} className="p-2 -ml-2 mr-2">
-                    <ArrowLeftIcon className="w-6 h-6 text-slate-600" />
-                </button>
-                <h1 className="text-xl font-bold text-slate-800">PURPOSE MATCH Premium</h1>
-            </header>
-
-            <main className="flex-grow overflow-y-auto p-6 text-slate-800">
-                <div className="text-center mb-8">
-                    <SparklesIcon className="w-16 h-16 text-amber-500 mx-auto mb-3" />
-                    <h2 className="text-3xl font-extrabold text-sky-800">Acelere sua Conexão</h2>
-                    <p className="text-slate-600 mt-2 max-w-md mx-auto">Escolha o plano que mais combina com seu propósito e encontre sua conexão mais rápido.</p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
-                    {plans.map((plan) => (
-                        <div 
-                            key={plan.id}
-                            onClick={() => setSelectedPlan(plan.id as PlanId)} 
-                            className={`relative p-5 border-2 rounded-lg cursor-pointer transition-all ${selectedPlan === plan.id ? 'border-sky-500 bg-sky-50 shadow-lg' : 'border-slate-300 bg-white hover:border-sky-400'}`}
-                        >
-                            {plan.tag && (
-                                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 ${plan.tag === 'Popular' ? 'bg-sky-600' : 'bg-amber-500'} text-white text-xs font-bold px-3 py-1 rounded-full`}>{plan.tag}</div>
-                            )}
-                            <h3 className="text-xl font-bold text-center">{plan.name}</h3>
-                            <p className="text-3xl font-extrabold text-center my-3">R$ <span className="text-4xl">{plan.price}</span></p>
-                            <ul className="space-y-2 text-sm text-slate-600 mt-4">
-                                <li className="flex items-center gap-3">
-                                    <HeartSparkleIcon className="w-5 h-5 text-sky-600 flex-shrink-0" />
-                                    <span><strong>{plan.superLikes} Supercurtidas</strong> para usar</span>
-                                </li>
-                                {plan.extraBenefit && (
-                                    <li className="flex items-center gap-3">
-                                        <BoltIcon className="w-5 h-5 text-sky-600 flex-shrink-0" />
-                                        <span>{plan.extraBenefit}</span>
-                                    </li>
-                                )}
-                                {benefits.map(benefit => (
-                                     <li key={benefit.text} className="flex items-center gap-3">
-                                        {benefit.icon}
-                                        <span>{benefit.text}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="mt-10 max-w-sm mx-auto">
-                     <div className="flex items-center justify-center gap-2 text-sm text-slate-500 mb-4">
-                        <LockClosedIcon className="w-4 h-4"/>
-                        <span>Pagamento Seguro via Stripe</span>
-                    </div>
-
-                    {error && <p className="text-center text-red-600 text-sm mb-4">{error}</p>}
-                    
-                    <button 
-                        onClick={handleCheckout} 
-                        disabled={isProcessing}
-                        className="w-full bg-sky-600 text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-2 hover:bg-sky-700 transition-colors disabled:bg-sky-400 disabled:cursor-wait"
-                    >
-                        {isProcessing ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-t-white border-white/50 rounded-full animate-spin"></div>
-                                <span>Processando...</span>
-                            </>
-                        ) : (
-                            'Assinar Agora'
-                        )}
-                    </button>
-                </div>
-                 <p className="text-xs text-slate-400 mt-6 text-center">
-                   Ao assinar, você concorda com nossos <button className="underline">Termos de Uso</button>. A assinatura será renovada automaticamente. Você pode cancelar a qualquer momento.
-                 </p>
-
-            </main>
-        </div>
+      <button
+        onClick={() => setSelectedPlan(planKey)}
+        className={`relative w-full p-4 border-2 rounded-lg text-left transition-all duration-200 ${
+          isSelected ? 'border-sky-500 bg-sky-50' : 'border-slate-300 bg-white hover:border-sky-400'
+        }`}
+      >
+        {plan.isPopular && (
+          <div className="absolute -top-3 right-4 bg-amber-400 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+            MAIS POPULAR
+          </div>
+        )}
+        <h3 className="text-lg font-bold text-slate-800">{plan.name}</h3>
+        <p className="text-2xl font-bold text-sky-700 mt-1">
+          {plan.price} <span className="text-base font-normal text-slate-500">{plan.period}</span>
+        </p>
+        <p className="text-sm text-slate-500 mt-1">{plan.description}</p>
+      </button>
     );
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 bg-slate-100 flex flex-col animate-slide-in-right">
+      <header className="bg-white p-4 flex items-center shadow-sm sticky top-0 z-10 flex-shrink-0">
+        <button onClick={onClose} className="p-2 -ml-2 mr-2">
+          <ArrowLeftIcon className="w-6 h-6 text-slate-600" />
+        </button>
+        <h1 className="text-xl font-bold text-slate-800">Seja Premium</h1>
+      </header>
+
+      <main className="flex-grow overflow-y-auto p-6">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-sky-800">Acelere sua Jornada</h2>
+          <p className="text-slate-600 mt-2 max-w-md mx-auto">
+            Com o Premium, você tem acesso a recursos exclusivos para encontrar sua conexão com propósito mais rápido.
+          </p>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+          <h3 className="font-bold text-lg mb-4">Benefícios Exclusivos do Premium:</h3>
+          <ul className="space-y-3 text-slate-700">
+            <BenefitItem>Veja todos que curtiram seu perfil e dê match instantaneamente.</BenefitItem>
+            <BenefitItem>Filtros avançados para encontrar exatamente quem você procura.</BenefitItem>
+            <BenefitItem>Receba 1 Impulso (Boost) e 4 Super Conexões toda semana.</BenefitItem>
+            <BenefitItem>Navegue anonimamente com o Modo Invisível.</BenefitItem>
+            <BenefitItem>Volte e desfaça sua última ação com o recurso Voltar.</BenefitItem>
+            <BenefitItem>Experiência sem anúncios.</BenefitItem>
+          </ul>
+        </div>
+
+        <div className="space-y-4 mb-6">
+          {renderPlan('annual')}
+          {renderPlan('monthly')}
+        </div>
+      </main>
+
+      <footer className="bg-white p-4 border-t border-slate-200 sticky bottom-0">
+        <button
+          onClick={handleCheckout}
+          disabled={isLoading}
+          className="w-full bg-sky-600 text-white font-bold py-4 px-6 rounded-full shadow-lg hover:bg-sky-700 transition-colors disabled:bg-sky-300 disabled:cursor-not-allowed"
+        >
+          {isLoading ? 'Aguarde...' : 'Assinar Agora'}
+        </button>
+      </footer>
+    </div>
+  );
 };

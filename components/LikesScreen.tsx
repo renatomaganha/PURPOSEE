@@ -12,9 +12,9 @@ interface LikesScreenProps {
   onConfirmMatch: (user: UserProfile) => void;
   onRemoveMatch: (userId: string) => void;
   onViewProfile: (user: UserProfile) => void;
+  onGoToSales: () => void;
   activeTab: 'received' | 'sent';
   onTabChange: (tab: 'received' | 'sent') => void;
-  onNavigateToSales: () => void;
 }
 
 const TabButton: React.FC<{ label: string; isActive: boolean; onClick: () => void; }> = ({ label, isActive, onClick }) => (
@@ -40,9 +40,9 @@ export const LikesScreen: React.FC<LikesScreenProps> = (props) => {
         onConfirmMatch, 
         onRemoveMatch, 
         onViewProfile,
+        onGoToSales,
         activeTab,
         onTabChange,
-        onNavigateToSales
     } = props;
 
     return (
@@ -72,7 +72,7 @@ export const LikesScreen: React.FC<LikesScreenProps> = (props) => {
                         onRemoveMatch={onRemoveMatch}
                         onViewProfile={onViewProfile}
                         currentUserProfile={currentUserProfile}
-                        onNavigateToSales={onNavigateToSales}
+                        onGoToSales={onGoToSales}
                     />
                 ) : (
                     <SentLikesList

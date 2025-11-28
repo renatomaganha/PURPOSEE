@@ -9,13 +9,6 @@ interface HelpAndSupportScreenProps {
     currentUserProfile: UserProfile | null;
 }
 
-const PolicySection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="mb-6">
-        <h2 className="text-xl font-bold text-slate-800 mb-2">{title}</h2>
-        <div className="text-slate-600 space-y-3 text-sm">{children}</div>
-    </div>
-);
-
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 export const HelpAndSupportScreen: React.FC<HelpAndSupportScreenProps> = ({ onClose, currentUserProfile }) => {
@@ -117,22 +110,6 @@ export const HelpAndSupportScreen: React.FC<HelpAndSupportScreenProps> = ({ onCl
                         </form>
                     )}
                 </div>
-
-
-                <PolicySection title="Solicitações de reembolso">
-                    <p>Todas as transações de pagamento do PURPOSE MATCH são processadas de forma segura pela Stripe. Se você deseja solicitar um reembolso, o processo é gerenciado diretamente por eles.</p>
-                    <p>Para solicitar um reembolso, siga as orientações fornecidas pela Stripe.</p>
-                </PolicySection>
-
-                <div className="space-y-4">
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                        <h3 className="font-bold text-slate-700">Stripe</h3>
-                        <p className="text-sm text-slate-600 mt-1">
-                            Para compras de assinaturas, Impulsos (Boosts) e Super Conexões feitas em nossa plataforma, a Stripe gerencia todos os reembolsos e cancelamentos. Para solicitar um reembolso, acesse a <a href="https://support.stripe.com/questions/how-to-refund-a-customer" target="_blank" rel="noopener noreferrer" className="text-sky-600 underline font-semibold">página de suporte da Stripe</a> para obter o passo a passo.
-                        </p>
-                    </div>
-                </div>
-
             </main>
         </div>
     );

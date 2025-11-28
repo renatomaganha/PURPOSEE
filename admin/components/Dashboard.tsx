@@ -1,11 +1,9 @@
 import React from 'react';
 import { DashboardStats } from '../types';
 
-const mockStats: DashboardStats = {
+const mockStats: Partial<DashboardStats> = {
     totalUsers: 10520,
     newUsersLastMonth: 1250,
-    premiumSubscribers: 830,
-    totalRevenue: 24750,
 };
 
 const StatCard: React.FC<{ title: string; value: string | number; description: string }> = ({ title, value, description }) => (
@@ -23,23 +21,13 @@ export const Dashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard 
                     title="Total de Usuários" 
-                    value={mockStats.totalUsers.toLocaleString('pt-BR')} 
+                    value={mockStats.totalUsers?.toLocaleString('pt-BR') || 0} 
                     description="Usuários cadastrados na plataforma" 
                 />
                 <StatCard 
                     title="Novos Usuários (30d)" 
-                    value={mockStats.newUsersLastMonth.toLocaleString('pt-BR')}
+                    value={mockStats.newUsersLastMonth?.toLocaleString('pt-BR') || 0}
                     description="Novos cadastros no último mês" 
-                />
-                 <StatCard 
-                    title="Assinantes Premium" 
-                    value={mockStats.premiumSubscribers.toLocaleString('pt-BR')}
-                    description="Usuários com assinatura ativa" 
-                />
-                <StatCard 
-                    title="Receita Total (Simulado)" 
-                    value={`R$ ${mockStats.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                    description="Receita acumulada da plataforma" 
                 />
             </div>
 

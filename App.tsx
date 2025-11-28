@@ -26,7 +26,6 @@ import { CookiePolicyScreen } from './components/CookiePolicyScreen';
 import { CommunityRulesScreen } from './components/CommunityRulesScreen';
 import { SafetyTipsScreen } from './components/SafetyTipsScreen';
 import { HelpAndSupportScreen } from './components/HelpAndSupportScreen';
-import { SalesPage } from './components/SalesPage';
 import { FaceVerificationModal } from './components/FaceVerificationModal';
 import { FaceVerification } from './components/FaceVerification';
 import { BoostConfirmationModal } from './components/BoostConfirmationModal';
@@ -37,10 +36,9 @@ import { useLanguage } from './contexts/LanguageContext';
 import { ToastContainer } from './components/ToastContainer';
 import { useToast } from './contexts/ToastContext';
 
-
 type AppStatus = 'landing' | 'auth' | 'create_profile' | 'loading' | 'app' | 'profile_error';
 type AppView = 'profiles' | 'matches' | 'messages' | 'premium';
-type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'sales' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile';
+type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile';
 
 const BOOST_DURATION = 3600; // 60 minutes in seconds
 
@@ -230,9 +228,9 @@ function App() {
   const [matchedUser, setMatchedUser] = useState<UserProfile | null>(null);
   const [userToBlockOrReport, setUserToBlockOrReport] = useState<UserProfile | null>(null);
   
-  const [isPremiumSaleActive, setIsPremiumSaleActive] = useState(true);
+  const [isPremiumSaleActive] = useState(true);
   
-  const [tags, setTags] = useState<Tag[]>(mockTags); // Usando mockTags por enquanto
+  const [tags] = useState<Tag[]>(mockTags); // Usando mockTags por enquanto
 
   const boostTimerRef = useRef<number | null>(null);
   const [boostTimeRemaining, setBoostTimeRemaining] = useState<number | null>(null);
@@ -269,11 +267,17 @@ function App() {
     setModalView(view);
   };
 
-  const closeModal = () => {
-    const lastView = modalHistory.length > 0 ? modalHistory[modalHistory.length - 1] : 'none';
-    setModalHistory(prev => prev.slice(0, -1));
-    setModalView(lastView);
-  };
+  const closeModal = useCallback(() => {
+    setModalHistory(prevHistory => {
+        const lastView = prevHistory.length > 1 ? prevHistory[prevHistory.length - 1] : 'none';
+        setModalView(lastView);
+        return prevHistory.slice(0, -1);
+    });
+  }, []);
+  
+  const onGoToSales = useCallback(() => {
+    addToast({ type: 'info', message: 'A funcionalidade Premium será implementada em breve.' });
+  }, [addToast]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -282,7 +286,7 @@ function App() {
   };
 
   // Helper to update profile in state and DB
-  const updateCurrentUserProfile = async (updates: Partial<UserProfile>) => {
+  const updateCurrentUserProfile = useCallback(async (updates: Partial<UserProfile>) => {
       if (!currentUserProfile) return;
 
       // Optimistic UI update
@@ -301,6 +305,7 @@ function App() {
       if (updates.isPaused !== undefined) dbPayload.is_paused = updates.isPaused;
       if (updates.isVerified !== undefined) dbPayload.is_verified = updates.isVerified;
       if (updates.face_verification_status !== undefined) dbPayload.face_verification_status = updates.face_verification_status;
+      if (updates.isPremium !== undefined) dbPayload.is_premium = updates.isPremium;
 
       if (Object.keys(dbPayload).length === 0) return;
 
@@ -315,8 +320,7 @@ function App() {
           setCurrentUserProfile(oldProfile);
           addToast({ type: 'error', message: "Ocorreu um erro ao salvar as alterações. Tente novamente." });
       }
-  };
-
+  }, [currentUserProfile, addToast]);
 
   // Main effect to react to session changes and determine app status
   useEffect(() => {
@@ -455,11 +459,13 @@ function App() {
   }, [allOtherUsers, likedMe, likedProfiles, passedProfiles, currentUserProfile]);
 
   const sentLikesProfiles = useMemo(() => {
-    // People I have liked, sorted by most recent like
-    return likedProfiles
+    // Create a unique list of liked profile IDs, preserving the most recent "like"
+    // by reversing, creating a Set (which keeps the first occurrence), and then mapping.
+    const uniqueLikedIds = [...new Set(likedProfiles.slice().reverse())];
+    
+    return uniqueLikedIds
         .map(id => allOtherUsers.find(u => u.id === id))
-        .filter((u): u is UserProfile => !!u)
-        .reverse(); // simple reverse to show most recent first
+        .filter((u): u is UserProfile => !!u);
   }, [allOtherUsers, likedProfiles]);
 
   const conversations = useMemo(() => {
@@ -547,7 +553,7 @@ function App() {
       console.log("Applying weekly premium bonuses:", updates);
       await updateCurrentUserProfile(updates);
     }
-  }, [currentUserProfile]);
+  }, [currentUserProfile, updateCurrentUserProfile]);
 
   const checkBoostStatus = useCallback(() => {
     if (currentUserProfile?.boostIsActive && currentUserProfile.boostExpiresAt) {
@@ -561,7 +567,7 @@ function App() {
             setBoostTimeRemaining(null);
         }
     }
-  }, [currentUserProfile]);
+  }, [currentUserProfile, updateCurrentUserProfile]);
   
   const checkPeakTime = useCallback(() => {
     if (peakTimeModalShown.current) return; // Show only once per session
@@ -597,7 +603,7 @@ function App() {
         clearTimeout(boostTimerRef.current);
       }
     };
-  }, [boostTimeRemaining]);
+  }, [boostTimeRemaining, updateCurrentUserProfile]);
 
   // Filter and sort profiles
   useEffect(() => {
@@ -717,7 +723,7 @@ function App() {
   const handleSuperLike = async () => {
     if (!currentUserProfile) return;
     if (!currentUserProfile.isPremium) {
-      addToast({ type: 'info', message: "A Super Conexão é um recurso exclusivo para usuários Premium." });
+      addToast({ type: 'info', message: "Super Conexão é um recurso Premium!" });
       return;
     }
     if ((currentUserProfile.superLikesRemaining ?? 0) > 0) {
@@ -767,7 +773,7 @@ function App() {
     if (currentUserProfile?.isPremium && (currentUserProfile.boostsRemaining ?? 0) > 0) {
         openModal('boost_confirm');
     } else if (!currentUserProfile?.isPremium) {
-        addToast({ type: 'info', message: "Impulso é um recurso Premium." });
+        onGoToSales();
     } else {
         addToast({ type: 'info', message: "Você não tem mais Impulsos. Eles renovam semanalmente." });
     }
@@ -826,10 +832,17 @@ function App() {
   const interests = useMemo(() => tags.filter(t => t.category === 'interests'), [tags]);
   const languages = useMemo(() => tags.filter(t => t.category === 'languages'), [tags]);
 
-  // FIX: Operator '+' cannot be applied to types 'unknown' and 'unknown'.
-  // Explicitly typing the accumulator and value in the reduce function helps TypeScript's
-  // type inference and resolves the error.
   const totalUnreadCount = Object.values(unreadCounts).reduce((sum: number, count: number) => sum + count, 0);
+  
+  const handleProfileCreated = useCallback((profile: UserProfile, wasEditing?: boolean) => {
+    setCurrentUserProfile(profile); 
+    if (wasEditing) {
+        closeModal();
+        addToast({type: 'success', message: 'Perfil salvo com sucesso!'});
+    } else {
+        setAppStatus('app');
+    }
+  }, [closeModal, addToast]);
 
   // Render logic
   const renderContent = () => {
@@ -858,7 +871,7 @@ function App() {
       case 'create_profile':
         return (
           <SetupCheck>
-            <CreateProfile onProfileCreated={(profile) => { setCurrentUserProfile(profile); setAppStatus('app'); }} denominations={denominations} keyValues={keyValues} interests={interests} languages={languages} />
+            <CreateProfile onProfileCreated={handleProfileCreated} denominations={denominations} keyValues={keyValues} interests={interests} languages={languages} />
           </SetupCheck>
         );
       case 'app':
@@ -882,6 +895,7 @@ function App() {
                   onRewind={handleRewind}
                   onBlock={() => { setUserToBlockOrReport(currentProfile); openModal('block'); }}
                   onReport={() => { setUserToBlockOrReport(currentProfile); openModal('report'); }}
+                  onGoToSales={onGoToSales}
                   distance={distanceToCurrentProfile}
                   matchReason={matchReason}
                 /> : <NoMoreProfiles onGoToFilters={() => openModal('filters')} />;
@@ -894,9 +908,10 @@ function App() {
                 onConfirmMatch={handleConfirmMatch}
                 onRemoveMatch={(userId) => setPassedProfiles(p => [...p, userId])}
                 onViewProfile={(user) => { setProfileToDetail(user); openModal('profile_detail'); }}
+// FIX: Added the required 'onGoToSales' prop to the LikesScreen component.
+                onGoToSales={onGoToSales}
                 activeTab={likesSubView}
                 onTabChange={setLikesSubView}
-                onNavigateToSales={() => openModal('sales')}
               />;
             case 'messages':
               return <MessagesScreen conversations={conversations} currentUserProfile={currentUserProfile} onSelectChat={handleSelectChat} />;
@@ -904,10 +919,10 @@ function App() {
               return <PremiumScreen 
                 currentUserProfile={currentUserProfile}
                 onEditProfile={() => openModal('edit_profile')}
-                onNavigateToSales={() => openModal('sales')}
                 isPremiumSaleActive={isPremiumSaleActive}
                 onToggleInvisibleMode={handleToggleInvisibleMode}
                 onSignOut={handleSignOut}
+                onGoToSales={onGoToSales}
               />;
             default:
               return <NoMoreProfiles onGoToFilters={() => openModal('filters')} />;
@@ -957,7 +972,7 @@ function App() {
     switch (modalView) {
       case 'filters':
         if(!currentUserProfile) return null;
-        return <FilterScreen onClose={closeModal} onApply={(f) => { setFilters(f); closeModal(); }} currentFilters={filters} isPremiumUser={currentUserProfile.isPremium} denominations={denominations} />;
+        return <FilterScreen onClose={closeModal} onApply={(f) => { setFilters(f); closeModal(); }} onGoToSales={onGoToSales} currentFilters={filters} isPremiumUser={currentUserProfile.isPremium} denominations={denominations} />;
       case 'settings':
         if(!currentUserProfile) return null;
         return <SettingsScreen 
@@ -975,14 +990,12 @@ function App() {
             onShowSafetyTips={() => openModal('safety')}
             onShowHelpAndSupport={() => openModal('support')}
             onVerifyProfileRequest={() => openModal('face_verification_prompt')}
+            onGoToSales={onGoToSales}
         />;
       case 'edit_profile':
         if (!currentUserProfile) return null;
         return <CreateProfile
-            onProfileCreated={(profile) => {
-                setCurrentUserProfile(profile);
-                closeModal();
-            }}
+            onProfileCreated={handleProfileCreated}
             isEditing={true}
             onClose={closeModal}
             denominations={denominations} 
@@ -1056,7 +1069,6 @@ function App() {
       case 'support': 
         if(!currentUserProfile) return null;
         return <HelpAndSupportScreen onClose={closeModal} currentUserProfile={currentUserProfile} />;
-      case 'sales': return <SalesPage onClose={closeModal} />;
       case 'face_verification_prompt': 
         if(!currentUserProfile) return null;
         return <FaceVerificationModal 
@@ -1091,7 +1103,7 @@ function App() {
         return <BoostConfirmationModal onClose={closeModal} onConfirm={confirmAndActivateBoost} boostCount={currentUserProfile.boostsRemaining ?? 0} />;
       case 'peak_time': 
         if(!currentUserProfile) return null;
-        return <PeakTimeModal userProfile={currentUserProfile} onClose={closeModal} onActivateBoost={handleActivateBoost} onGoToPremium={() => {openModal('sales')}} />;
+        return <PeakTimeModal userProfile={currentUserProfile} onClose={closeModal} onActivateBoost={handleActivateBoost} onGoToPremium={() => { openModal('edit_profile'); /* Placeholder */}} />;
       case 'profile_detail': {
         if (!profileToDetail || !currentUserProfile) return null;
         let distanceToDetail: number | null = null;
@@ -1100,7 +1112,6 @@ function App() {
         }
         // Recalculate match reason for consistency
         const { reason } = calculateCompatibilityScore(currentUserProfile, profileToDetail, likedMe);
-        // FIX: Pass the `distanceToDetail` variable to the `distance` prop of ProfileDetailModal.
         return <ProfileDetailModal 
                   profile={profileToDetail}
                   onClose={closeModal}

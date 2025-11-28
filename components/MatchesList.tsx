@@ -14,8 +14,8 @@ interface MatchesListProps {
   onConfirmMatch: (user: UserProfile) => void;
   onRemoveMatch: (userId: string) => void;
   onViewProfile: (user: UserProfile) => void;
+  onGoToSales: () => void;
   currentUserProfile: UserProfile;
-  onNavigateToSales: () => void;
 }
 
 /**
@@ -35,12 +35,21 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): nu
 }
 
 
-export const MatchesList: React.FC<MatchesListProps> = ({ matches, superLikedBy, onConfirmMatch, onRemoveMatch, onViewProfile, currentUserProfile, onNavigateToSales }) => {
+export const MatchesList: React.FC<MatchesListProps> = ({ matches, superLikedBy, onConfirmMatch, onRemoveMatch, onViewProfile, onGoToSales, currentUserProfile }) => {
   const isPremium = currentUserProfile.isPremium;
   const { t } = useLanguage();
 
   return (
     <div className="p-4">
+      {!isPremium && (
+          <div className="mb-4 p-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-lg shadow-lg text-center">
+              <h3 className="font-bold text-lg">{t('unlockLikes')}</h3>
+              <p className="text-sm mt-1 mb-3">{t('unlockLikesDesc')}</p>
+              <button onClick={onGoToSales} className="bg-white text-amber-700 font-bold py-2 px-6 rounded-full shadow-md hover:bg-amber-100 transition-colors">
+                  {t('becomePremium')}
+              </button>
+          </div>
+      )}
       {matches.length === 0 ? (
         <div className="text-center text-slate-500 pt-16">
           <p>{t('noLikesYet')}</p>
@@ -117,20 +126,6 @@ export const MatchesList: React.FC<MatchesListProps> = ({ matches, superLikedBy,
               </div>
             </div>
           )})}
-
-          {!isPremium && matches.some(match => !superLikedBy.includes(match.id)) && (
-            <div className="mt-6 p-4 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-lg shadow-lg text-center">
-                <SparklesIcon className="w-8 h-8 mx-auto text-amber-300 mb-2"/>
-                <h3 className="font-bold text-lg">{t('unlockLikes')}</h3>
-                <p className="text-sm opacity-90 mt-1">{t('unlockLikesDesc')}</p>
-                <button 
-                  onClick={onNavigateToSales}
-                  className="mt-4 bg-white text-sky-700 font-bold py-2 px-5 rounded-full shadow hover:bg-slate-200 transition-transform transform hover:scale-105"
-                >
-                    {t('becomePremium')}
-                </button>
-            </div>
-          )}
         </div>
       )}
     </div>

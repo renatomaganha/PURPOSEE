@@ -16,10 +16,10 @@ import { useToast } from '../contexts/ToastContext';
 interface PremiumScreenProps {
     currentUserProfile: UserProfile | null;
     onEditProfile: () => void;
-    onNavigateToSales: () => void;
     isPremiumSaleActive: boolean;
     onToggleInvisibleMode: () => void;
     onSignOut: () => void;
+    onGoToSales: () => void;
 }
 
 const calculateProfileCompletion = (profile: UserProfile | null): number => {
@@ -53,9 +53,9 @@ const PremiumBenefit: React.FC<{
     icon: React.ReactNode;
     title: string;
     description: string;
-    onClick: () => void;
+    onClick?: () => void;
 }> = ({ icon, title, description, onClick }) => (
-    <div onClick={onClick} className="bg-white p-4 rounded-lg shadow-md flex items-center cursor-pointer hover:shadow-lg transition-shadow">
+    <div onClick={onClick} className={`bg-white p-4 rounded-lg shadow-md flex items-center ${onClick ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`}>
         <div className="p-2 bg-sky-100 rounded-full mr-4">
             {icon}
         </div>
@@ -102,17 +102,11 @@ const Toggle: React.FC<{ checked: boolean; onChange: (checked: boolean) => void;
 );
 
 
-export const PremiumScreen: React.FC<PremiumScreenProps> = ({ currentUserProfile, onEditProfile, onNavigateToSales, isPremiumSaleActive, onToggleInvisibleMode, onSignOut }) => {
-    const { addToast } = useToast();
-
-    const handleFeatureClick = () => {
-        addToast({ type: 'info', message: 'Este é um recurso Premium! Clique em "Seja Premium" para saber mais.' });
-        onNavigateToSales();
-    };
+export const PremiumScreen: React.FC<PremiumScreenProps> = ({ currentUserProfile, onEditProfile, isPremiumSaleActive, onToggleInvisibleMode, onSignOut, onGoToSales }) => {
 
     const handleInvisibleToggle = () => {
         if (!currentUserProfile?.isPremium) {
-            addToast({ type: 'info', message: 'Modo Invisível é um recurso Premium. Faça upgrade para ativá-lo!' });
+            onGoToSales();
             return;
         }
         onToggleInvisibleMode();
@@ -202,35 +196,31 @@ export const PremiumScreen: React.FC<PremiumScreenProps> = ({ currentUserProfile
                 />
             </Section>
             
-            <div className="bg-gradient-to-r from-slate-700 to-slate-800 text-white p-4 rounded-lg shadow-md mb-6">
-                <div className="flex items-center mb-2">
-                    <StarIcon className="w-6 h-6 text-amber-300 mr-3" />
-                    <h3 className="font-bold text-lg">Plano Básico</h3>
+            {currentUserProfile?.isPremium ? (
+                 <div className="bg-gradient-to-r from-sky-700 to-sky-800 text-white p-4 rounded-lg shadow-md mb-6">
+                    <div className="flex items-center mb-2">
+                        <StarIcon className="w-6 h-6 text-amber-300 mr-3" />
+                        <h3 className="font-bold text-lg">Você é Premium!</h3>
+                    </div>
+                    <p className="text-sm text-slate-300 mb-3">
+                        Aproveite todos os benefícios exclusivos para encontrar sua conexão divina.
+                    </p>
                 </div>
-                <p className="text-sm text-slate-300 mb-3">
-                    Você tem limite de <strong>30 curtidas diárias</strong> e só pode ver quem te curtiu caso obtenha um match mútuo.
-                </p>
-                <p className="text-sm font-semibold text-white">
-                    Não perca a oportunidade de encontrar sua conexão divina,{' '}
-                    <button onClick={onNavigateToSales} className="underline font-bold hover:text-amber-300 transition">
-                        seja um usuário premium!
-                    </button>
-                </p>
-            </div>
-            
-            {isPremiumSaleActive && (
-                 <div className="my-6">
-                    <button
-                        onClick={onNavigateToSales}
-                        className="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 text-center animate-pulse"
-                    >
-                        <span className="text-lg">✨ OFERTA ESPECIAL ATIVADA ✨</span>
-                        <span className="block text-sm font-normal">Clique aqui e veja os descontos exclusivos!</span>
+            ) : (
+                <div className="bg-gradient-to-r from-slate-700 to-slate-800 text-white p-4 rounded-lg shadow-md mb-6">
+                    <div className="flex items-center mb-2">
+                        <StarIcon className="w-6 h-6 text-amber-300 mr-3" />
+                        <h3 className="font-bold text-lg">Plano Básico</h3>
+                    </div>
+                    <p className="text-sm text-slate-300 mb-3">
+                        Você tem limite de <strong>30 curtidas diárias</strong> e só pode ver quem te curtiu caso obtenha um match mútuo.
+                    </p>
+                    <button onClick={onGoToSales} className="w-full bg-amber-500 font-bold py-2 rounded-lg hover:bg-amber-600 transition-colors">
+                        Fazer Upgrade para Premium
                     </button>
                 </div>
             )}
-
-
+            
             <div className="text-center mb-6">
                 <SparklesIcon className="w-12 h-12 text-amber-500 mx-auto mb-2" />
                 <h1 className="text-2xl font-bold text-sky-800">Melhore a tua experiência</h1>
@@ -244,18 +234,9 @@ export const PremiumScreen: React.FC<PremiumScreenProps> = ({ currentUserProfile
                         icon={benefit.icon}
                         title={benefit.title}
                         description={benefit.description}
-                        onClick={handleFeatureClick}
+                        onClick={!currentUserProfile?.isPremium ? onGoToSales : undefined}
                     />
                 ))}
-            </div>
-
-            <div className="mt-8">
-                <button
-                    onClick={onNavigateToSales}
-                    className="w-full bg-amber-400 text-amber-900 font-bold py-3 px-6 rounded-full shadow-lg hover:bg-amber-500 transition-transform transform hover:scale-105"
-                >
-                    Seja Premium
-                </button>
             </div>
 
             <div className="mt-8 text-center">
