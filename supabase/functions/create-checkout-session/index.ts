@@ -1,10 +1,10 @@
-// FIX: Corrected the path to the type definitions for Deno, resolving 'Deno' not found and type definition errors.
-// FIX: Pinned the version for Supabase functions types to resolve Deno-related type definition errors.
-/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/dist/edge-runtime.d.ts" />
+// FIX: Downgraded the functions-js type reference to a potentially more stable version to resolve type loading errors.
+/// <reference types="https://esm.sh/@supabase/functions-js@2.3.1/dist/edge-runtime.d.ts" />
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-// @ts-ignore
-import Stripe from 'https://esm.sh/stripe@14.2.0?target=deno';
+// FIX: Updated Deno standard library to a more recent version.
+import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
+// FIX: Updated Stripe to a recent version and removed @ts-ignore, as types should be correctly inferred now.
+import Stripe from 'https://esm.sh/stripe@15.8.0?target=deno';
 
 // A chave secreta é lida das variáveis de ambiente do Supabase.
 // Garanta que 'STRIPE_SECRET_KEY' esteja configurada no seu painel.

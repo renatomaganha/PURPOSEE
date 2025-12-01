@@ -116,7 +116,7 @@ export default function AdminApp() {
     const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
     const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [logoUrl] = useState<string | null>('https://ojsgrhaopwwqpoyayumb.supabase.co/storage/v1/object/public/logoo/PURPOSE.png');
+    const [logoUrl] = useState<string | null>('https://ojsgrhaopwwqpoyayumb.supabase.co/storage/v1/object/public/logoo/PURPOSEee%20copy.png');
 
     const ADMIN_EMAIL = 'renat0maganhaaa@gmail.com';
 

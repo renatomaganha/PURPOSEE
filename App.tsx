@@ -35,10 +35,12 @@ import { SetupCheck } from './components/SetupCheck';
 import { useLanguage } from './contexts/LanguageContext';
 import { ToastContainer } from './components/ToastContainer';
 import { useToast } from './contexts/ToastContext';
+import { SalesPage } from './components/SalesPage';
+
 
 type AppStatus = 'landing' | 'auth' | 'create_profile' | 'loading' | 'app' | 'profile_error';
 type AppView = 'profiles' | 'matches' | 'messages' | 'premium';
-type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile';
+type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile' | 'sales';
 
 const BOOST_DURATION = 3600; // 60 minutes in seconds
 
@@ -205,7 +207,7 @@ function App() {
   const { session, signOut } = useAuth();
   const { t } = useLanguage();
   const { addToast } = useToast();
-  const [logoUrl] = useState<string | null>('https://ojsgrhaopwwqpoyayumb.supabase.co/storage/v1/object/public/logoo/PURPOSE.png');
+  const [logoUrl] = useState<string | null>('https://ojsgrhaopwwqpoyayumb.supabase.co/storage/v1/object/public/logoo/PURPOSEee%20copy.png');
   const [appStatus, setAppStatus] = useState<AppStatus>('loading');
   
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
@@ -276,8 +278,8 @@ function App() {
   }, []);
   
   const onGoToSales = useCallback(() => {
-    addToast({ type: 'info', message: 'A funcionalidade Premium será implementada em breve.' });
-  }, [addToast]);
+    openModal('sales');
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -321,6 +323,24 @@ function App() {
           addToast({ type: 'error', message: "Ocorreu um erro ao salvar as alterações. Tente novamente." });
       }
   }, [currentUserProfile, addToast]);
+
+  // Effect to handle Stripe checkout return
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("payment_success")) {
+      addToast({ type: 'success', message: 'Pagamento concluído com sucesso! Bem-vindo(a) ao Premium.' });
+      if (currentUserProfile && !currentUserProfile.isPremium) {
+        updateCurrentUserProfile({ isPremium: true });
+      }
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    if (query.get("payment_canceled")) {
+      addToast({ type: 'info', message: 'O processo de pagamento foi cancelado. Você pode tentar novamente a qualquer momento.' });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [currentUserProfile, updateCurrentUserProfile, addToast]);
 
   // Main effect to react to session changes and determine app status
   useEffect(() => {
@@ -723,7 +743,7 @@ function App() {
   const handleSuperLike = async () => {
     if (!currentUserProfile) return;
     if (!currentUserProfile.isPremium) {
-      addToast({ type: 'info', message: "Super Conexão é um recurso Premium!" });
+      onGoToSales();
       return;
     }
     if ((currentUserProfile.superLikesRemaining ?? 0) > 0) {
@@ -839,6 +859,7 @@ function App() {
     if (wasEditing) {
         closeModal();
         addToast({type: 'success', message: 'Perfil salvo com sucesso!'});
+        setActiveView('profiles');
     } else {
         setAppStatus('app');
     }
@@ -908,7 +929,6 @@ function App() {
                 onConfirmMatch={handleConfirmMatch}
                 onRemoveMatch={(userId) => setPassedProfiles(p => [...p, userId])}
                 onViewProfile={(user) => { setProfileToDetail(user); openModal('profile_detail'); }}
-// FIX: Added the required 'onGoToSales' prop to the LikesScreen component.
                 onGoToSales={onGoToSales}
                 activeTab={likesSubView}
                 onTabChange={setLikesSubView}
@@ -970,6 +990,8 @@ function App() {
     if (!currentUserProfile && appStatus !== 'landing' && appStatus !== 'auth') return null;
 
     switch (modalView) {
+      case 'sales':
+        return <SalesPage onClose={closeModal} />;
       case 'filters':
         if(!currentUserProfile) return null;
         return <FilterScreen onClose={closeModal} onApply={(f) => { setFilters(f); closeModal(); }} onGoToSales={onGoToSales} currentFilters={filters} isPremiumUser={currentUserProfile.isPremium} denominations={denominations} />;
@@ -1103,7 +1125,7 @@ function App() {
         return <BoostConfirmationModal onClose={closeModal} onConfirm={confirmAndActivateBoost} boostCount={currentUserProfile.boostsRemaining ?? 0} />;
       case 'peak_time': 
         if(!currentUserProfile) return null;
-        return <PeakTimeModal userProfile={currentUserProfile} onClose={closeModal} onActivateBoost={handleActivateBoost} onGoToPremium={() => { openModal('edit_profile'); /* Placeholder */}} />;
+        return <PeakTimeModal userProfile={currentUserProfile} onClose={closeModal} onActivateBoost={handleActivateBoost} onGoToPremium={() => { openModal('sales'); }} />;
       case 'profile_detail': {
         if (!profileToDetail || !currentUserProfile) return null;
         let distanceToDetail: number | null = null;
