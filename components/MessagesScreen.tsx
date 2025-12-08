@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, Message } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -15,49 +15,8 @@ interface Snippet {
     created_at: string;
 }
 
-const ConversationItem: React.FC<{ conversation: UserProfile; onSelectChat: (user: UserProfile) => void; currentUserProfile: UserProfile }> = ({ conversation, onSelectChat, currentUserProfile }) => {
-    const [lastMessage, setLastMessage] = useState<Snippet | null>(null);
-
-    useEffect(() => {
-        if (!currentUserProfile) return;
-
-        const fetchLastMessage = async () => {
-            const { data, error } = await supabase
-                .from('messages')
-                .select('text, created_at')
-                .or(`(sender_id.eq.${currentUserProfile.id},receiver_id.eq.${conversation.id}),(sender_id.eq.${conversation.id},receiver_id.eq.${currentUserProfile.id})`)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (data) {
-                setLastMessage(data);
-            }
-        };
-        
-        fetchLastMessage();
-
-        const channelId = `conversation_${[currentUserProfile.id, conversation.id].sort().join('_')}`;
-        const channel = supabase.channel(channelId);
-        
-        channel.on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `or(and(sender_id.eq.${currentUserProfile.id},receiver_id.eq.${conversation.id}),and(sender_id.eq.${conversation.id},receiver_id.eq.${currentUserProfile.id}))`
-          },
-          (payload) => {
-            setLastMessage(payload.new as Snippet);
-          }
-        ).subscribe();
-        
-        return () => {
-          supabase.removeChannel(channel);
-        };
-    }, [conversation.id, currentUserProfile]);
-
+const ConversationItem: React.FC<{ conversation: UserProfile; onSelectChat: (user: UserProfile) => void; lastMessage: Snippet | null; }> = ({ conversation, onSelectChat, lastMessage }) => {
+    
     const formatTimestamp = (timestamp: string): string => {
         const date = new Date(timestamp);
         const now = new Date();
@@ -93,6 +52,58 @@ const ConversationItem: React.FC<{ conversation: UserProfile; onSelectChat: (use
 
 export const MessagesScreen: React.FC<MessagesScreenProps> = ({ conversations, onSelectChat, currentUserProfile }) => {
   const { t } = useLanguage();
+  const [lastMessages, setLastMessages] = useState<Record<string, Snippet>>({});
+
+    useEffect(() => {
+        if (!currentUserProfile || conversations.length === 0) return;
+
+        // Fetch initial last messages for all conversations
+        const fetchAllLastMessages = async () => {
+            const promises = conversations.map(conv =>
+                supabase
+                    .from('messages')
+                    .select('text, created_at')
+                    .or(`(sender_id.eq.${currentUserProfile.id},receiver_id.eq.${conv.id}),(sender_id.eq.${conv.id},receiver_id.eq.${currentUserProfile.id})`)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single()
+            );
+            const results = await Promise.all(promises);
+            const newLastMessages: Record<string, Snippet> = {};
+            results.forEach((res, index) => {
+                if (res.data) {
+                    newLastMessages[conversations[index].id] = res.data;
+                }
+            });
+            setLastMessages(newLastMessages);
+        };
+        fetchAllLastMessages();
+
+        // Single subscription for all message inserts involving the current user
+        const channel = supabase.channel(`user-messages-${currentUserProfile.id}`);
+        channel.on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `or(sender_id.eq.${currentUserProfile.id},receiver_id.eq.${currentUserProfile.id})`
+            },
+            (payload) => {
+                const newMessage = payload.new as Message;
+                const partnerId = newMessage.sender_id === currentUserProfile.id ? newMessage.receiver_id : newMessage.sender_id;
+                setLastMessages(prev => ({
+                    ...prev,
+                    [partnerId]: { text: newMessage.text, created_at: newMessage.created_at }
+                }));
+            }
+        ).subscribe();
+        
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [conversations, currentUserProfile]);
+
 
   return (
     <div className="bg-white min-h-full">
@@ -112,7 +123,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ conversations, o
                 key={conv.id}
                 conversation={conv}
                 onSelectChat={onSelectChat}
-                currentUserProfile={currentUserProfile}
+                lastMessage={lastMessages[conv.id] || null}
             />
           ))}
         </div>

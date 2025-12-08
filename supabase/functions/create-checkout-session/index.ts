@@ -1,5 +1,5 @@
-// FIX: Replaced the unstable remote type reference for Supabase functions with a Deno-native library reference. This correctly loads the Deno namespace and resolves the 'Cannot find name Deno' error.
-/// <reference lib="deno.ns" />
+// FIX: The `deno.ns` lib reference is not universally available in all TypeScript environments, leading to 'Cannot find lib definition' and 'Cannot find name Deno' errors. Reverting to the standard remote type reference for Supabase Functions to ensure the Deno namespace is correctly loaded by IDEs and resolves these errors.
+/// <reference types="https://esm.sh/@supabase/functions-js@2" />
 
 // FIX: Updated Deno standard library to a more recent version.
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';

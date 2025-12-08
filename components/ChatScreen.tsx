@@ -66,21 +66,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ match, currentUserProfil
             event: 'INSERT', 
             schema: 'public', 
             table: 'messages',
+            filter: `or(and(sender_id.eq.${currentUserProfile.id},receiver_id.eq.${match.id}),and(sender_id.eq.${match.id},receiver_id.eq.${currentUserProfile.id}))`
         }, 
         (payload) => {
              const newMessagePayload = payload.new as Message;
-             // Only add message if it's part of this conversation
-             const isForThisChat = 
-                (newMessagePayload.sender_id === currentUserProfile.id && newMessagePayload.receiver_id === match.id) ||
-                (newMessagePayload.sender_id === match.id && newMessagePayload.receiver_id === currentUserProfile.id);
-
-             if (isForThisChat) {
-                setMessages(prev => {
-                  // Prevent duplicates from optimistic UI vs. realtime
-                  if (prev.some(m => m.id === newMessagePayload.id)) return prev;
-                  return [...prev, newMessagePayload];
-                });
-             }
+             setMessages(prev => {
+               // Prevent duplicates
+               if (prev.some(m => m.id === newMessagePayload.id)) return prev;
+               return [...prev, newMessagePayload];
+             });
         }
     );
 
