@@ -28,6 +28,7 @@ export enum MaritalStatus {
   
 export interface UserProfile {
     id: string;
+    email?: string;
     name: string;
     age: number;
     dob?: string;

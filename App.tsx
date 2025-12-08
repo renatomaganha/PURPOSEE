@@ -357,6 +357,7 @@ function App() {
 
           if (data) {
             const userProfile = dbProfileToAppProfile(data);
+            userProfile.email = session.user.email; // Adiciona o e-mail da sessão ao perfil
             // Concede status premium ao usuário especificado
             if (session.user.email === '19reiss@gmail.com') {
                 userProfile.isPremium = true;

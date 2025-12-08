@@ -1,5 +1,5 @@
-// FIX: Downgraded the functions-js type reference to a potentially more stable version to resolve type loading errors.
-/// <reference types="https://esm.sh/@supabase/functions-js@2.3.1/dist/edge-runtime.d.ts" />
+// FIX: Replaced the unstable remote type reference for Supabase functions with a Deno-native library reference. This correctly loads the Deno namespace and resolves the 'Cannot find name Deno' error.
+/// <reference lib="deno.ns" />
 
 // FIX: Updated Deno standard library to a more recent version.
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';

@@ -179,6 +179,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     const faceVerificationStatus = currentUserProfile?.face_verification_status || VerificationStatus.NOT_VERIFIED;
     const canVerify = faceVerificationStatus === VerificationStatus.NOT_VERIFIED || faceVerificationStatus === VerificationStatus.REJECTED;
 
+    const isAdmin = currentUserProfile?.email === 'renat0maganhaaa@gmail.com';
+
     return (
         <>
             <div className="fixed inset-0 z-30 bg-slate-100 flex flex-col animate-slide-in-right">
@@ -285,6 +287,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     <Section title={t('support')}>
                         <SettingItem icon={<QuestionMarkCircleIcon className="w-6 h-6" />} title={t('helpAndSupport')} onClick={onShowHelpAndSupport} />
                     </Section>
+
+                    {isAdmin && (
+                        <Section title="Administração">
+                            <a href="/admin" target="_blank" rel="noopener noreferrer">
+                                <SettingItem 
+                                    icon={<ShieldCheckIcon className="w-6 h-6" />} 
+                                    title="Painel do Administrador" 
+                                    subtitle="Acessar o painel de gerenciamento" 
+                                />
+                            </a>
+                        </Section>
+                    )}
                     
                     <Section title="Logout & Exclusão">
                         <SettingItem icon={<TrashIcon className="w-6 h-6 text-red-500" />} title={<span className="text-red-600">{t('deleteAccount')}</span>} onClick={onDeleteAccountRequest} />
