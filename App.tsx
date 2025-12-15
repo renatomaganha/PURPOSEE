@@ -268,10 +268,25 @@ function App() {
     openModal('sales');
   }, []);
 
+  const resetAppState = useCallback(() => {
+      setModalView('none');
+      setModalHistory([]);
+      setCurrentUserProfile(null);
+      setLikedProfiles([]);
+      setLikedMe([]);
+      setPassedProfiles([]);
+      setSuperLikedBy([]);
+      setAllOtherUsers([]);
+      setProfiles([]);
+      setAllMessages([]);
+      setMatchedUser(null);
+      setActiveChat(null);
+      setFavoriteProfiles([]);
+  }, []);
+
   const handleSignOut = async () => {
     await signOut();
-    setModalView('none');
-    setModalHistory([]);
+    resetAppState();
   };
 
   const updateCurrentUserProfile = useCallback(async (updates: Partial<UserProfile>) => {
@@ -370,13 +385,11 @@ function App() {
         }
       } else {
         setAppStatus('landing');
-        setCurrentUserProfile(null);
-        setModalView('none');
-        setModalHistory([]);
+        resetAppState(); // Limpa o estado quando não há sessão
       }
     };
     checkSessionAndProfile();
-  }, [session, t]);
+  }, [session, t, resetAppState]);
 
   useEffect(() => {
     if (appStatus !== 'app' || !session?.user) return;

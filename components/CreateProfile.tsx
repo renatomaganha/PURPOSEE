@@ -101,11 +101,11 @@ const appProfileToDbProfile = (appData: Partial<UserProfile>): any => {
         bio: appData.bio,
         denomination: appData.denomination,
         church_frequency: appData.churchFrequency,
-        // Campos novos comentados até que a migração do DB seja feita
-        // church_name: appData.churchName,
-        // favorite_verse: appData.favoriteVerse,
-        // favorite_song: appData.favoriteSong,
-        // favorite_book: appData.favoriteBook,
+        // Campos opcionais descomentados (enviarão null se vazios)
+        church_name: appData.churchName || null,
+        favorite_verse: appData.favoriteVerse || null,
+        favorite_song: appData.favoriteSong || null,
+        favorite_book: appData.favoriteBook || null,
         key_values: appData.keyValues,
         relationship_goal: appData.relationshipGoal,
         marital_status: appData.maritalStatus,
@@ -702,15 +702,15 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                                 <input type="text" name="churchName" placeholder="Ex: Igreja da Cidade" onChange={handleChange} value={profileData.churchName || ''} className="w-full mt-1 p-2 border rounded" />
                             </div>
                             <div>
-                                <label className="font-semibold text-sm text-slate-600">Louvor / Música Favorita</label>
+                                <label className="font-semibold text-sm text-slate-600">Louvor / Música Favorita <span className="font-normal text-slate-400">(Opcional)</span></label>
                                 <input type="text" name="favoriteSong" placeholder="Ex: Ousado Amor" onChange={handleChange} value={profileData.favoriteSong || ''} className="w-full mt-1 p-2 border rounded" />
                             </div>
                              <div>
-                                <label className="font-semibold text-sm text-slate-600">Versículo Favorito</label>
+                                <label className="font-semibold text-sm text-slate-600">Versículo Favorito <span className="font-normal text-slate-400">(Opcional)</span></label>
                                 <input type="text" name="favoriteVerse" placeholder="Ex: Filipenses 4:13" onChange={handleChange} value={profileData.favoriteVerse || ''} className="w-full mt-1 p-2 border rounded" />
                             </div>
                             <div>
-                                <label className="font-semibold text-sm text-slate-600">Livro Favorito</label>
+                                <label className="font-semibold text-sm text-slate-600">Livro Favorito <span className="font-normal text-slate-400">(Opcional)</span></label>
                                 <input type="text" name="favoriteBook" placeholder="Ex: As Crônicas de Nárnia" onChange={handleChange} value={profileData.favoriteBook || ''} className="w-full mt-1 p-2 border rounded" />
                             </div>
                             <div>
@@ -865,15 +865,15 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                             <input type="text" name="churchName" placeholder="Ex: Igreja da Cidade" onChange={handleChange} value={profileData.churchName || ''} className="w-full mt-1 p-2 border rounded" />
                         </div>
                         <div>
-                            <label className="font-semibold text-sm text-slate-600">Louvor / Música Favorita</label>
+                            <label className="font-semibold text-sm text-slate-600">Louvor / Música Favorita <span className="font-normal text-slate-400">(Opcional)</span></label>
                             <input type="text" name="favoriteSong" placeholder="Ex: Ousado Amor" onChange={handleChange} value={profileData.favoriteSong || ''} className="w-full mt-1 p-2 border rounded" />
                         </div>
                          <div>
-                            <label className="font-semibold text-sm text-slate-600">Versículo Favorito</label>
+                            <label className="font-semibold text-sm text-slate-600">Versículo Favorito <span className="font-normal text-slate-400">(Opcional)</span></label>
                             <input type="text" name="favoriteVerse" placeholder="Ex: Filipenses 4:13" onChange={handleChange} value={profileData.favoriteVerse || ''} className="w-full mt-1 p-2 border rounded" />
                         </div>
                         <div>
-                            <label className="font-semibold text-sm text-slate-600">Livro Favorito</label>
+                            <label className="font-semibold text-sm text-slate-600">Livro Favorito <span className="font-normal text-slate-400">(Opcional)</span></label>
                             <input type="text" name="favoriteBook" placeholder="Ex: As Crônicas de Nárnia" onChange={handleChange} value={profileData.favoriteBook || ''} className="w-full mt-1 p-2 border rounded" />
                         </div>
                         {/* Fim dos novos campos */}
