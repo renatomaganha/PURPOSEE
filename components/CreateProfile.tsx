@@ -86,7 +86,7 @@ const appProfileToDbProfile = (appData: Partial<UserProfile>): any => {
 
     return {
         id: appData.id,
-        email: appData.email,
+        // email: appData.email, // Removido para evitar erro se a coluna não existir no user_profiles
         name: appData.name,
         age: appData.age,
         dob: appData.dob,
@@ -262,7 +262,14 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                         const appData = dbProfileToAppProfile(data);
                         const existingPhotos = appData.photos || [];
                         const paddedPhotos = [...existingPhotos, ...Array(5 - existingPhotos.length).fill(null)];
-                        const fullProfileData = { ...appData, photos: paddedPhotos };
+                        
+                        // Garante que o email venha da sessão do usuário, já que não está na tabela
+                        const fullProfileData = { 
+                            ...appData, 
+                            photos: paddedPhotos,
+                            email: user.email 
+                        };
+                        
                         setProfileData(fullProfileData);
                         if(isEditing) {
                             setInitialProfileData(fullProfileData);
@@ -479,7 +486,7 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
 
         const finalProfile = {
             id: user.id,
-            email: user.email, // Garante que o email seja enviado
+            email: user.email, // Mantém o email no objeto para uso na aplicação
             age: profileData.dob ? calculateAge(profileData.dob) : 0,
             ...profileData,
         };
@@ -500,7 +507,14 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
 
             // Sucesso!
             setIsSubmitting(false);
-            onProfileCreated(dbProfileToAppProfile(data) as UserProfile, isEditing);
+            
+            // Reconstrói o perfil completo incluindo o email que não veio do banco
+            const completeProfile = {
+                ...dbProfileToAppProfile(data),
+                email: user.email
+            };
+            
+            onProfileCreated(completeProfile as UserProfile, isEditing);
 
         } catch (error: any) {
             setIsSubmitting(false);
