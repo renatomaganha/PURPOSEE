@@ -154,6 +154,23 @@ const ProgressBar: React.FC<{ step: number; totalSteps: number }> = ({ step, tot
     </div>
 );
 
+// Movi o PhotoUploader para fora para evitar recriação a cada render
+const PhotoUploader: React.FC<{
+    photo: string | null;
+    isUploading: boolean;
+    onClick: () => void;
+}> = ({ photo, isUploading, onClick }) => (
+    <button type="button" onClick={onClick} className="cursor-pointer aspect-square bg-slate-200 rounded-lg flex items-center justify-center relative overflow-hidden">
+        {photo && <img src={photo} alt="Foto de perfil" className="w-full h-full object-cover" />}
+        {isUploading && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-t-white border-white/50 rounded-full animate-spin"></div>
+            </div>
+        )}
+        {!photo && !isUploading && <PhotoIcon className="w-8 h-8 text-slate-400" />}
+    </button>
+);
+
 interface CreateProfileProps {
     onProfileCreated: (profile: UserProfile, wasEditing?: boolean) => void;
     isEditing?: boolean;
@@ -555,22 +572,6 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
         />;
     }
 
-    const PhotoUploader: React.FC<{
-        photo: string | null;
-        isUploading: boolean;
-        onClick: () => void;
-    }> = ({ photo, isUploading, onClick }) => (
-        <button type="button" onClick={onClick} className="cursor-pointer aspect-square bg-slate-200 rounded-lg flex items-center justify-center relative overflow-hidden">
-            {photo && <img src={photo} alt="Foto de perfil" className="w-full h-full object-cover" />}
-            {isUploading && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <div className="w-6 h-6 border-2 border-t-white border-white/50 rounded-full animate-spin"></div>
-                </div>
-            )}
-            {!photo && !isUploading && <PhotoIcon className="w-8 h-8 text-slate-400" />}
-        </button>
-    );
-
     if (isEditing) {
         return (
             <>
@@ -731,8 +732,7 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
     }
 
 
-    // Original return for initial creation
-    const formContent = (
+    return (
         <div className="w-full max-w-md bg-white p-6 rounded-lg shadow-lg">
             {error && <p className="text-red-600 bg-red-50 p-3 rounded-md text-sm text-center mb-4">{error}</p>}
             <ProgressBar step={step} totalSteps={totalSteps} />
@@ -959,6 +959,21 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                      )}
                 </div>
             )}
+            
+            {isUploadModalOpen && (
+                <PhotoUploadModal 
+                    onClose={() => setIsUploadModalOpen(false)}
+                    onTakePhoto={handleTakePhoto}
+                    onChooseFromGallery={handleChooseFromGallery}
+                />
+            )}
+            {isCameraOpen && (
+                <CameraCapture
+                    onClose={() => setIsCameraOpen(false)}
+                    onCapture={handleCameraCapture}
+                />
+            )}
+             <input ref={fileInputRef} type="file" className="hidden" accept="image/png, image/jpeg" onChange={onFileSelect} />
         </div>
     );
 };
