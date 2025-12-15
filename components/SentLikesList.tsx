@@ -45,10 +45,10 @@ export const SentLikesList: React.FC<SentLikesListProps> = ({ sentLikes, onViewP
                                 e.stopPropagation();
                                 onRevokeLike(profile);
                             }}
-                            className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm text-slate-600 rounded-full p-1.5 hover:bg-red-500 hover:text-white transition-colors shadow-sm z-10"
+                            className="absolute top-2 right-2 bg-white rounded-full p-2 text-red-500 hover:bg-red-50 transition-colors shadow-md z-10 transform hover:scale-105"
                             aria-label="Cancelar curtida"
                         >
-                            <XIcon className="w-4 h-4" />
+                            <XIcon className="w-5 h-5" />
                         </button>
                     </div>
                 ))}

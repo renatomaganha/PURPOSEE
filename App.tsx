@@ -674,24 +674,23 @@ function App() {
       const userId = userToUnmatch.id;
       const isMutual = isUnmatchMutual;
 
-      closeModal(); // Close modal immediately for better UX
+      closeModal(); 
 
-      // Optimistic Updates
+      // 1. Remove da lista local de perfis curtidos (desfaz a curtida enviada)
       setLikedProfiles(prev => prev.filter(id => id !== userId));
       
-      // If it was mutual, we also need to remove them from "Liked Me" technically for the match logic to break
-      // But purely removing from likedProfiles breaks the match logic `conversations` memo.
-      // So UI updates automatically.
-
+      // 2. Se for um match mútuo, adiciona aos perfis 'passados' para não reaparecer em "Curtidas Recebidas"
+      // ou no deck principal imediatamente.
       if (isMutual) {
+          setPassedProfiles(prev => [...prev, userId]);
           addToast({ type: 'info', message: `Você desfez o match com ${userToUnmatch.name}.` });
       } else {
           addToast({ type: 'info', message: `Curtida para ${userToUnmatch.name} cancelada.` });
       }
 
-      // DB Updates
+      // 3. Atualização no Banco de Dados
       try {
-          // Remove MY like to THEM
+          // Remove MEU like para ELE(A)
           const { error: error1 } = await supabase
               .from('likes')
               .delete()
@@ -699,18 +698,15 @@ function App() {
               .eq('liked_id', userId);
 
           if (error1) throw error1;
-
-          // If mutual, we could optionally remove THEIR like to ME to completely sever the link,
-          // but usually dating apps just need one side to break the link. 
-          // However, to ensure they disappear from "Received Likes" if they were there, or to stop them seeing me:
-          // Ideally, we just block or delete the match entry. Since we rely on 'likes' table for matches:
-          // Removing my like is enough to break the 'mutual' condition (A likes B AND B likes A).
           
       } catch (error) {
           console.error("Error unmatching/revoking:", error);
           addToast({ type: 'error', message: "Erro ao processar a solicitação. Tente novamente." });
-          // Revert optimistic update (simplified)
+          // Reverte a atualização otimista (simplificado)
           setLikedProfiles(prev => [...prev, userId]);
+          if (isMutual) {
+              setPassedProfiles(prev => prev.filter(id => id !== userId));
+          }
       }
       
       setUserToUnmatch(null);
