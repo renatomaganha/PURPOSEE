@@ -80,6 +80,7 @@ const appProfileToDbProfile = (appData: Partial<UserProfile>): any => {
     if (!appData) return {};
     return {
         id: appData.id,
+        email: appData.email,
         name: appData.name,
         age: appData.age,
         dob: appData.dob,
@@ -197,6 +198,9 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
 
 
     const [profileData, setProfileData] = useState<Partial<UserProfile>>({
+        name: '',
+        location: '',
+        dob: '',
         photos: [null, null, null, null, null],
         gender: Gender.MULHER,
         seeking: [Gender.HOMEM], // Default seeking
@@ -371,7 +375,30 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
         );
     };
 
-    const handleNext = () => setStep(prev => prev + 1);
+    const handleNext = () => {
+        setError(null);
+        
+        if (step === 1) {
+            if (!profileData.name || !profileData.name.trim()) {
+                setError('Por favor, informe seu nome.');
+                return;
+            }
+            if (!profileData.dob) {
+                setError('Por favor, informe sua data de nascimento.');
+                return;
+            }
+            if (calculateAge(profileData.dob) < 18) {
+                setError('Você deve ter pelo menos 18 anos para usar o app.');
+                return;
+            }
+            if (!profileData.location || !profileData.location.trim()) {
+                setError('Por favor, informe sua localização.');
+                return;
+            }
+        }
+        
+        setStep(prev => prev + 1);
+    };
     const handleBack = () => { setError(null); setStep(prev => prev - 1) };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -426,6 +453,7 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
 
         const finalProfile = {
             id: user.id,
+            email: user.email, // Garante que o email seja enviado
             age: profileData.dob ? calculateAge(profileData.dob) : 0,
             ...profileData,
         };
@@ -442,7 +470,7 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
 
         if (upsertError) {
             console.error("Error saving profile:", upsertError);
-            setError("Ocorreu um erro ao salvar seu perfil. Verifique os dados e tente novamente.");
+            setError(`Ocorreu um erro ao salvar seu perfil: ${upsertError.message}`);
         } else {
             onProfileCreated(dbProfileToAppProfile(data) as UserProfile, isEditing);
         }
@@ -881,26 +909,6 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                      )}
                 </div>
             )}
-        </div>
-    );
-    
-    return (
-        <div className="min-h-screen bg-slate-100 p-4 flex flex-col justify-center items-center">
-            {formContent}
-            {isUploadModalOpen && (
-                <PhotoUploadModal 
-                    onClose={() => setIsUploadModalOpen(false)}
-                    onTakePhoto={handleTakePhoto}
-                    onChooseFromGallery={handleChooseFromGallery}
-                />
-            )}
-            {isCameraOpen && (
-                <CameraCapture
-                    onClose={() => setIsCameraOpen(false)}
-                    onCapture={handleCameraCapture}
-                />
-            )}
-            <input ref={fileInputRef} type="file" className="hidden" accept="image/png, image/jpeg" onChange={onFileSelect} />
         </div>
     );
 };
