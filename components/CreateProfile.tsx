@@ -101,10 +101,11 @@ const appProfileToDbProfile = (appData: Partial<UserProfile>): any => {
         bio: appData.bio,
         denomination: appData.denomination,
         church_frequency: appData.churchFrequency,
-        church_name: appData.churchName,
-        favorite_verse: appData.favoriteVerse,
-        favorite_song: appData.favoriteSong,
-        favorite_book: appData.favoriteBook,
+        // Campos novos comentados até que a migração do DB seja feita
+        // church_name: appData.churchName,
+        // favorite_verse: appData.favoriteVerse,
+        // favorite_song: appData.favoriteSong,
+        // favorite_book: appData.favoriteBook,
         key_values: appData.keyValues,
         relationship_goal: appData.relationshipGoal,
         marital_status: appData.maritalStatus,
@@ -116,10 +117,10 @@ const appProfileToDbProfile = (appData: Partial<UserProfile>): any => {
         is_premium: appData.isPremium,
         is_invisible_mode: appData.isInvisibleMode,
         is_paused: appData.isPaused,
-        height: appData.height,
-        zodiac_sign: appData.zodiacSign,
-        is_age_hidden: appData.isAgeHidden,
-        is_zodiac_hidden: appData.isZodiacHidden,
+        // height: appData.height, // Comentado
+        // zodiac_sign: appData.zodiacSign, // Comentado
+        // is_age_hidden: appData.isAgeHidden, // Comentado
+        // is_zodiac_hidden: appData.isZodiacHidden, // Comentado
         super_likes_remaining: appData.superLikesRemaining,
         super_like_reset_date: appData.superLikeResetDate,
         boosts_remaining: appData.boostsRemaining,
