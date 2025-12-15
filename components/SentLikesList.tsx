@@ -1,13 +1,15 @@
 import React from 'react';
 import { UserProfile } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
+import { XIcon } from './icons/XIcon';
 
 interface SentLikesListProps {
   sentLikes: UserProfile[];
   onViewProfile: (user: UserProfile) => void;
+  onRevokeLike: (user: UserProfile) => void;
 }
 
-export const SentLikesList: React.FC<SentLikesListProps> = ({ sentLikes, onViewProfile }) => {
+export const SentLikesList: React.FC<SentLikesListProps> = ({ sentLikes, onViewProfile, onRevokeLike }) => {
     const { t } = useLanguage();
 
     if (sentLikes.length === 0) {
@@ -25,17 +27,29 @@ export const SentLikesList: React.FC<SentLikesListProps> = ({ sentLikes, onViewP
                 {sentLikes.map((profile) => (
                     <div 
                         key={profile.id}
-                        onClick={() => onViewProfile(profile)}
-                        className="relative aspect-square bg-slate-200 rounded-lg overflow-hidden cursor-pointer group"
+                        className="relative aspect-square bg-slate-200 rounded-lg overflow-hidden group shadow-sm"
                     >
                         <img 
                             src={profile.photos[0]}
                             alt={profile.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            className="w-full h-full object-cover cursor-pointer"
+                            onClick={() => onViewProfile(profile)}
                         />
-                         <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
+                         <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent pointer-events-none">
                             <p className="text-white font-bold text-sm truncate">{profile.name}, {profile.age}</p>
                         </div>
+                        
+                        {/* Botão de Cancelar Curtida */}
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRevokeLike(profile);
+                            }}
+                            className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm text-slate-600 rounded-full p-1.5 hover:bg-red-500 hover:text-white transition-colors shadow-sm z-10"
+                            aria-label="Cancelar curtida"
+                        >
+                            <XIcon className="w-4 h-4" />
+                        </button>
                     </div>
                 ))}
             </div>

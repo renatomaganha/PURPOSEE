@@ -18,6 +18,7 @@ import { InformationCircleIcon } from './icons/InformationCircleIcon';
 import { useLanguage } from '../contexts/LanguageContext';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { useToast } from '../contexts/ToastContext';
+import { StarIcon } from './icons/StarIcon';
 
 
 interface ProfileCardProps {
@@ -32,6 +33,8 @@ interface ProfileCardProps {
   onGoToSales: () => void;
   distance: number | null;
   matchReason?: string;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 }
 
 const SWIPE_THRESHOLD = 80; // pixels
@@ -48,7 +51,21 @@ const OverlayInfoPill: React.FC<{ children: React.ReactNode }> = ({ children }) 
   </span>
 );
 
-export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserProfile, onLike, onPass, onRewind, onSuperLike, onBlock, onReport, onGoToSales, distance, matchReason }) => {
+export const ProfileCard: React.FC<ProfileCardProps> = ({ 
+    profile, 
+    currentUserProfile, 
+    onLike, 
+    onPass, 
+    onRewind, 
+    onSuperLike, 
+    onBlock, 
+    onReport, 
+    onGoToSales, 
+    distance, 
+    matchReason,
+    isFavorite,
+    onToggleFavorite
+}) => {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -62,6 +79,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
   const [startX, setStartX] = useState(0);
   const [deltaX, setDeltaX] = useState(0);
   const [actionFeedback, setActionFeedback] = useState<'like' | 'pass' | 'superlike' | null>(null);
+  const [isStarAnimating, setIsStarAnimating] = useState(false);
   
   // Overlay content state
   const [overlayContent, setOverlayContent] = useState<React.ReactNode>(null);
@@ -77,6 +95,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
     setPhotoIndex(0);
     setDeltaX(0);
     setActionFeedback(null);
+    setIsStarAnimating(false);
     if (cardRef.current) {
         cardRef.current.style.transition = 'none';
         cardRef.current.style.transform = '';
@@ -211,6 +230,13 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
                   break;
           }
       }, 200);
+  };
+  
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setIsStarAnimating(true);
+      setTimeout(() => setIsStarAnimating(false), 400); // Reset animation state
+      onToggleFavorite();
   };
 
     const renderOverlayContent = (indexOverride?: number) => {
@@ -402,6 +428,24 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
                   className={`h-1 flex-1 rounded-full ${index === photoIndex ? 'bg-white' : 'bg-white/50'}`}
                 ></div>
               ))}
+            </div>
+            
+            {/* Favorite Button (Star) */}
+            <div className="absolute top-6 right-4 z-20">
+                <Tooltip text={isFavorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}>
+                    <button
+                        onClick={handleFavoriteClick}
+                        className="p-2 transition-transform hover:scale-110 active:scale-95 focus:outline-none"
+                    >
+                        <StarIcon 
+                            className={`w-8 h-8 drop-shadow-md transition-colors duration-300 ${
+                                isFavorite 
+                                    ? 'text-amber-400 fill-current' // Estrela preenchida amarela
+                                    : 'text-transparent stroke-white stroke-[1.5]' // Apenas contorno branco
+                            } ${isStarAnimating ? 'animate-pop' : ''}`} 
+                        />
+                    </button>
+                </Tooltip>
             </div>
 
             {/* Overlay com informações dinâmicas */}

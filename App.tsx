@@ -36,11 +36,12 @@ import { useLanguage } from './contexts/LanguageContext';
 import { ToastContainer } from './components/ToastContainer';
 import { useToast } from './contexts/ToastContext';
 import { SalesPage } from './components/SalesPage';
+import { UnmatchModal } from './components/UnmatchModal';
 
 
 type AppStatus = 'landing' | 'auth' | 'create_profile' | 'loading' | 'app' | 'profile_error';
 type AppView = 'profiles' | 'matches' | 'messages' | 'premium';
-type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile' | 'sales';
+type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile' | 'sales' | 'unmatch';
 
 const BOOST_DURATION = 3600; // 60 minutes in seconds
 
@@ -87,7 +88,6 @@ const mockTags: Tag[] = [
 
 const dbProfileToAppProfile = (dbData: any): UserProfile => {
   if (!dbData) return {} as UserProfile;
-  // Mapeamento explícito de snake_case (banco de dados) para camelCase (aplicativo)
   return {
     id: dbData.id,
     name: dbData.name,
@@ -132,11 +132,8 @@ const dbProfileToAppProfile = (dbData: any): UserProfile => {
   };
 };
 
-/**
- * Calcula a distância em km entre duas coordenadas geográficas.
- */
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371; // Raio da Terra em km
+    const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a =
@@ -148,55 +145,44 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): nu
     return Math.round(distance);
 }
 
-/**
- * Calcula a pontuação de compatibilidade entre dois perfis.
- */
 const calculateCompatibilityScore = (currentUser: UserProfile, otherUser: UserProfile, likedCurrentUserIds: string[]): { score: number, reason: string } => {
     let score = 0;
     const reasons: { score: number, text: string }[] = [];
 
-    // Prioridade máxima: Perfil com Boost ativo
     if (otherUser.boostIsActive) {
         score += 1000;
     }
     
-    // Prioridade alta: O outro usuário já curtiu o usuário atual
     if (likedCurrentUserIds.includes(otherUser.id)) {
         score += 500;
         reasons.push({ score: 500, text: `${otherUser.name} curtiu você!` });
     }
 
-    // Mesmo objetivo de relacionamento (importante)
     if (currentUser.relationshipGoal && otherUser.relationshipGoal && currentUser.relationshipGoal === otherUser.relationshipGoal) {
         score += 100;
         reasons.push({ score: 100, text: `Ambos buscam ${currentUser.relationshipGoal}` });
     }
 
-    // Valores de fé compartilhados
     const sharedValues = currentUser.keyValues?.filter(value => otherUser.keyValues?.includes(value)) || [];
     score += sharedValues.length * 20;
     if (sharedValues.length > 0) {
         reasons.push({ score: sharedValues.length * 20 + 1, text: `Ambos valorizam ${sharedValues[0]}` });
     }
 
-    // Interesses em comum
     const sharedInterests = currentUser.interests?.filter(interest => otherUser.interests?.includes(interest)) || [];
     score += sharedInterests.length * 10;
     if (sharedInterests.length > 0) {
         reasons.push({ score: sharedInterests.length * 10, text: `Vocês dois amam ${sharedInterests[0]}` });
     }
     
-    // Bônus menores
     if (currentUser.denomination === otherUser.denomination) score += 5;
     if (currentUser.churchFrequency === otherUser.churchFrequency) score += 5;
 
-    // Bônus de proximidade
     if (currentUser.latitude && currentUser.longitude && otherUser.latitude && otherUser.longitude) {
         const distance = getDistance(currentUser.latitude, currentUser.longitude, otherUser.latitude, otherUser.longitude);
-        if (distance < 10) score += 5; // Bônus para menos de 10km
+        if (distance < 10) score += 5;
     }
 
-    // Ordena as razões pela pontuação e escolhe a mais relevante
     const topReason = reasons.sort((a, b) => b.score - a.score)[0]?.text || '';
         
     return { score, reason: topReason };
@@ -212,7 +198,7 @@ function App() {
   
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [allOtherUsers, setAllOtherUsers] = useState<UserProfile[]>([]);
-  const [profiles, setProfiles] = useState<Array<{ profile: UserProfile; reason: string }>>([]); // Swipe deck com razão
+  const [profiles, setProfiles] = useState<Array<{ profile: UserProfile; reason: string }>>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const [activeView, setActiveView] = useState<AppView>('profiles');
@@ -224,15 +210,16 @@ function App() {
   const [passedProfiles, setPassedProfiles] = useState<string[]>([]);
   const [superLikedBy, setSuperLikedBy] = useState<string[]>([]); 
   const [likedMe, setLikedMe] = useState<string[]>([]);
+  const [favoriteProfiles, setFavoriteProfiles] = useState<string[]>([]);
   
   const [activeChat, setActiveChat] = useState<UserProfile | null>(null);
-  
   const [matchedUser, setMatchedUser] = useState<UserProfile | null>(null);
   const [userToBlockOrReport, setUserToBlockOrReport] = useState<UserProfile | null>(null);
+  const [userToUnmatch, setUserToUnmatch] = useState<UserProfile | null>(null); // Estado para o usuário a ser desfeito o match ou like
+  const [isUnmatchMutual, setIsUnmatchMutual] = useState(false); // Flag para distinguir entre desfazer match ou cancelar like
   
   const [isPremiumSaleActive] = useState(true);
-  
-  const [tags] = useState<Tag[]>(mockTags); // Usando mockTags por enquanto
+  const [tags] = useState<Tag[]>(mockTags);
 
   const boostTimerRef = useRef<number | null>(null);
   const [boostTimeRemaining, setBoostTimeRemaining] = useState<number | null>(null);
@@ -261,10 +248,10 @@ function App() {
   });
   const [unreadCounts, setUnreadCounts] = useState<{[chatId: string]: number}>({});
 
-  const [likesSubView, setLikesSubView] = useState<'received' | 'sent'>('received');
+  const [likesSubView, setLikesSubView] = useState<'received' | 'sent' | 'matches'>('received');
 
   const openModal = (view: ModalView) => {
-    if (view === modalView) return; // Avoid duplicates
+    if (view === modalView) return; 
     setModalHistory(prev => [...prev, modalView]);
     setModalView(view);
   };
@@ -287,11 +274,8 @@ function App() {
     setModalHistory([]);
   };
 
-  // Helper to update profile in state and DB
   const updateCurrentUserProfile = useCallback(async (updates: Partial<UserProfile>) => {
       if (!currentUserProfile) return;
-
-      // Optimistic UI update
       const oldProfile = currentUserProfile;
       const updatedProfile = { ...currentUserProfile, ...updates };
       setCurrentUserProfile(updatedProfile);
@@ -317,8 +301,7 @@ function App() {
           .eq('id', currentUserProfile.id);
 
       if (error) {
-          console.error("Error updating profile in DB:", "Message:", error.message, "Details:", error.details, "Code:", error.code);
-          // Revert state on error
+          console.error("Error updating profile in DB:", error);
           setCurrentUserProfile(oldProfile);
           addToast({ type: 'error', message: "Ocorreu um erro ao salvar as alterações. Tente novamente." });
       }
@@ -329,7 +312,6 @@ function App() {
       closeModal();
   }, [updateCurrentUserProfile, closeModal]);
 
-  // Effect to handle Stripe checkout return
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     if (query.get("payment_success")) {
@@ -337,22 +319,18 @@ function App() {
       if (currentUserProfile && !currentUserProfile.isPremium) {
         updateCurrentUserProfile({ isPremium: true });
       }
-      // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
     if (query.get("payment_canceled")) {
       addToast({ type: 'info', message: 'O processo de pagamento foi cancelado. Você pode tentar novamente a qualquer momento.' });
-      // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [currentUserProfile, updateCurrentUserProfile, addToast]);
 
-  // Main effect to react to session changes and determine app status
   useEffect(() => {
     const checkSessionAndProfile = async () => {
       if (session) {
         setAppStatus('loading');
-        
         try {
           const { data, error } = await supabase
             .from('user_profiles')
@@ -362,55 +340,32 @@ function App() {
 
           if (data) {
             const userProfile = dbProfileToAppProfile(data);
-            userProfile.email = session.user.email; // Adiciona o e-mail da sessão ao perfil
-            // Concede status premium ao usuário especificado
+            userProfile.email = session.user.email;
             if (session.user.email === '19reiss@gmail.com') {
                 userProfile.isPremium = true;
             }
             setCurrentUserProfile(userProfile);
             setAppStatus('app');
 
-            // Automatically request location if not set.
             if (!userProfile.latitude && !userProfile.longitude) {
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
                         async (position) => {
                             const { latitude, longitude } = position.coords;
                             const locationString = t('locationObtained');
-                            
                             setCurrentUserProfile(prev => prev ? { ...prev, latitude, longitude, location: locationString } : null);
-
-                            const { error: updateError } = await supabase
-                                .from('user_profiles')
-                                .update({ latitude, longitude, location: locationString })
-                                .eq('id', userProfile.id);
-                            
-                            if (updateError) {
-                                console.error("Failed to save automatic location to DB:", updateError);
-                            }
+                            await supabase.from('user_profiles').update({ latitude, longitude, location: locationString }).eq('id', userProfile.id);
                         },
-                        (error) => {
-                            console.warn(`Automatic geolocation request failed: ${error.message}`);
-                        },
-                        {
-                            enableHighAccuracy: false,
-                            timeout: 10000,
-                            maximumAge: 600000 
-                        }
+                        (error) => console.warn(`Automatic geolocation request failed: ${error.message}`),
+                        { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
                     );
                 }
             }
-
           } else {
-            if (error && error.code !== 'PGRST116') {
-              console.error("Erro ao buscar perfil:", "Message:", error.message, "Details:", error.details, "Code:", error.code);
-              setAppStatus('profile_error');
-            } else {
-              setAppStatus('create_profile');
-            }
+            if (error && error.code !== 'PGRST116') setAppStatus('profile_error');
+            else setAppStatus('create_profile');
           }
         } catch (e: any) {
-          console.error("Erro catastrófico ao buscar perfil:", e.message, e);
           setAppStatus('profile_error');
         }
       } else {
@@ -423,162 +378,98 @@ function App() {
     checkSessionAndProfile();
   }, [session, t]);
 
-  // Effect to load other users' data and likes once the main app is ready
   useEffect(() => {
     if (appStatus !== 'app' || !session?.user) return;
 
     const loadAppData = async () => {
-      // Fetch other users
-      const { data: otherUsersData, error: otherUsersError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .neq('id', session.user.id);
+      const { data: otherUsersData } = await supabase.from('user_profiles').select('*').neq('id', session.user.id);
+      if (otherUsersData) setAllOtherUsers(otherUsersData.map(dbProfileToAppProfile));
 
-      if (otherUsersError) {
-        console.error("Error fetching other profiles:", otherUsersError);
-      } else {
-        setAllOtherUsers(otherUsersData.map(dbProfileToAppProfile));
-      }
-
-      // Fetch likes data
-      const { data: likesData, error: likesError } = await supabase
-        .from('likes')
-        .select('liker_id, liked_id, is_super_like')
-        .or(`liker_id.eq.${session.user.id},liked_id.eq.${session.user.id}`);
-
-      if (likesError) {
-        console.error("Error fetching likes:", likesError);
-      } else if (likesData) {
+      const { data: likesData } = await supabase.from('likes').select('liker_id, liked_id, is_super_like').or(`liker_id.eq.${session.user.id},liked_id.eq.${session.user.id}`);
+      if (likesData) {
         setLikedProfiles(likesData.filter(l => l.liker_id === session.user.id).map(l => l.liked_id));
         const whoLikedMe = likesData.filter(l => l.liked_id === session.user.id);
         setLikedMe(whoLikedMe.map(l => l.liker_id));
         setSuperLikedBy(whoLikedMe.filter(l => l.is_super_like).map(l => l.liker_id));
       }
 
-      // Fetch all messages for the current user
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`receiver_id.eq.${session.user.id},sender_id.eq.${session.user.id}`);
-      
-      if (messagesError) {
-        console.error("Error fetching all messages:", messagesError);
-      } else if (messagesData) {
-        setAllMessages(messagesData as Message[]);
-      }
+      const { data: messagesData } = await supabase.from('messages').select('*').or(`receiver_id.eq.${session.user.id},sender_id.eq.${session.user.id}`);
+      if (messagesData) setAllMessages(messagesData as Message[]);
     };
 
     loadAppData();
   }, [appStatus, session]);
   
   const matches = useMemo(() => {
-    // People who liked me, but I haven't actioned yet
     if (!currentUserProfile) return [];
-
     return allOtherUsers.filter(u => 
-      u.name && u.age && // Garante que o perfil está minimamente completo
+      u.name && u.age && 
       likedMe.includes(u.id) && 
       !likedProfiles.includes(u.id) && 
       !passedProfiles.includes(u.id) &&
-      currentUserProfile.seeking?.includes(u.gender) // Garante que o gênero é o que o usuário procura
+      currentUserProfile.seeking?.includes(u.gender)
     );
   }, [allOtherUsers, likedMe, likedProfiles, passedProfiles, currentUserProfile]);
 
   const sentLikesProfiles = useMemo(() => {
-    // Create a unique list of liked profile IDs, preserving the most recent "like"
-    // by reversing, creating a Set (which keeps the first occurrence), and then mapping.
     const uniqueLikedIds = [...new Set(likedProfiles.slice().reverse())];
+    // Filter out users who already liked me back (because those are matches, not just sent likes)
+    const pendingSentLikes = uniqueLikedIds.filter(id => !likedMe.includes(id));
     
-    return uniqueLikedIds
+    return pendingSentLikes
         .map(id => allOtherUsers.find(u => u.id === id))
         .filter((u): u is UserProfile => !!u);
-  }, [allOtherUsers, likedProfiles]);
+  }, [allOtherUsers, likedProfiles, likedMe]);
 
   const conversations = useMemo(() => {
-    // Mutual likes
     const mutualIds = likedProfiles.filter(id => likedMe.includes(id));
     return allOtherUsers.filter(u => mutualIds.includes(u.id));
   }, [allOtherUsers, likedProfiles, likedMe]);
 
-  // Effect to calculate unread message counts
   useEffect(() => {
     if (!currentUserProfile || conversations.length === 0) {
       if (Object.keys(unreadCounts).length > 0) setUnreadCounts({});
       return;
     }
-
     const newUnreadCounts: {[chatId: string]: number} = {};
-    
     conversations.forEach(convo => {
       const lastRead = lastReadTimestamps[convo.id] || new Date(0).toISOString();
       const unreadInConvo = allMessages.filter(msg =>
-        msg.sender_id === convo.id && // Message is from the other person
-        msg.receiver_id === currentUserProfile.id && // Message is to me
+        msg.sender_id === convo.id && 
+        msg.receiver_id === currentUserProfile.id && 
         new Date(msg.created_at) > new Date(lastRead)
       ).length;
-      
-      if (unreadInConvo > 0) {
-        newUnreadCounts[convo.id] = unreadInConvo;
-      }
+      if (unreadInConvo > 0) newUnreadCounts[convo.id] = unreadInConvo;
     });
-    
-    if (JSON.stringify(newUnreadCounts) !== JSON.stringify(unreadCounts)) {
-      setUnreadCounts(newUnreadCounts);
-    }
+    if (JSON.stringify(newUnreadCounts) !== JSON.stringify(unreadCounts)) setUnreadCounts(newUnreadCounts);
   }, [allMessages, conversations, lastReadTimestamps, currentUserProfile, unreadCounts]);
 
-  // Realtime subscription for new messages
   useEffect(() => {
     if (!currentUserProfile) return;
-
     const channel = supabase.channel(`public:messages:receiver_id=eq.${currentUserProfile.id}`);
-    
-    channel.on('postgres_changes', 
-      { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'messages',
-        filter: `receiver_id=eq.${currentUserProfile.id}`
-      }, 
-      (payload) => {
+    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${currentUserProfile.id}` }, (payload) => {
            const newMessage = payload.new as Message;
-           if (activeChat?.id !== newMessage.sender_id) {
-              setAllMessages(prev => [...prev, newMessage]);
-           }
-      }
-    ).subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+           if (activeChat?.id !== newMessage.sender_id) setAllMessages(prev => [...prev, newMessage]);
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [currentUserProfile, activeChat]);
-
 
   const checkAndApplyWeeklyBonuses = useCallback(async () => {
     if (!currentUserProfile || !currentUserProfile.isPremium) return;
-    
     const now = new Date();
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
     const lastSuperLikeReset = new Date(currentUserProfile.superLikeResetDate || 0);
     const lastBoostReset = new Date(currentUserProfile.boostResetDate || 0);
-
     const updates: Partial<UserProfile> = {};
-
     if (lastSuperLikeReset < oneWeekAgo) {
-      updates.superLikesRemaining = 4; // Replenish to 4
+      updates.superLikesRemaining = 4;
       updates.superLikeResetDate = now.toISOString();
     }
-
     if (lastBoostReset < oneWeekAgo) {
-      updates.boostsRemaining = (currentUserProfile.boostsRemaining ?? 0) + 1; // Add 1 boost
+      updates.boostsRemaining = (currentUserProfile.boostsRemaining ?? 0) + 1;
       updates.boostResetDate = now.toISOString();
     }
-
-    if (Object.keys(updates).length > 0) {
-      console.log("Applying weekly premium bonuses:", updates);
-      await updateCurrentUserProfile(updates);
-    }
+    if (Object.keys(updates).length > 0) await updateCurrentUserProfile(updates);
   }, [currentUserProfile, updateCurrentUserProfile]);
 
   const checkBoostStatus = useCallback(() => {
@@ -586,9 +477,8 @@ function App() {
         const expireTime = new Date(currentUserProfile.boostExpiresAt).getTime();
         const now = new Date().getTime();
         const remaining = Math.round((expireTime - now) / 1000);
-        if (remaining > 0) {
-            setBoostTimeRemaining(remaining);
-        } else {
+        if (remaining > 0) setBoostTimeRemaining(remaining);
+        else {
             updateCurrentUserProfile({ boostIsActive: false, boostExpiresAt: null });
             setBoostTimeRemaining(null);
         }
@@ -596,15 +486,14 @@ function App() {
   }, [currentUserProfile, updateCurrentUserProfile]);
   
   const checkPeakTime = useCallback(() => {
-    if (peakTimeModalShown.current) return; // Show only once per session
+    if (peakTimeModalShown.current) return;
     const currentHour = new Date().getHours();
-    if (currentHour >= 18 || currentHour < 0) { // 18:00 - 23:59
+    if (currentHour >= 18 || currentHour < 0) {
         openModal('peak_time');
         peakTimeModalShown.current = true;
     }
   }, []);
 
-  // Effect to run checks once the profile is loaded and app is ready
   useEffect(() => {
       if (appStatus === 'app' && currentUserProfile) {
           checkAndApplyWeeklyBonuses();
@@ -613,40 +502,26 @@ function App() {
       }
   }, [appStatus, currentUserProfile, checkAndApplyWeeklyBonuses, checkBoostStatus, checkPeakTime]);
   
-  // Timer for active boost
   useEffect(() => {
     if (boostTimeRemaining !== null && boostTimeRemaining > 0) {
-      boostTimerRef.current = window.setTimeout(() => {
-        setBoostTimeRemaining(t => (t ? t - 1 : 0));
-      }, 1000);
+      boostTimerRef.current = window.setTimeout(() => setBoostTimeRemaining(t => (t ? t - 1 : 0)), 1000);
     } else if (boostTimeRemaining === 0) {
-      console.log("Boost expired!");
       updateCurrentUserProfile({ boostIsActive: false, boostExpiresAt: null });
       setBoostTimeRemaining(null);
     }
-    return () => {
-      if (boostTimerRef.current) {
-        clearTimeout(boostTimerRef.current);
-      }
-    };
+    return () => { if (boostTimerRef.current) clearTimeout(boostTimerRef.current); };
   }, [boostTimeRemaining, updateCurrentUserProfile]);
 
-  // Filter and sort profiles
   useEffect(() => {
     if (!currentUserProfile) return;
-
-    // 1. Filter out unwanted profiles
     let availableProfiles = allOtherUsers.filter(p => 
       p.photos.some(photo => !!photo) &&
       !likedProfiles.includes(p.id) && 
       !passedProfiles.includes(p.id) &&
       (!p.isInvisibleMode || likedProfiles.includes(p.id)) &&
       !p.isPaused &&
-      // Garante que o usuário atual veja apenas os gêneros que ele procura.
       currentUserProfile.seeking?.includes(p.gender)
     );
-    
-    // 2. Apply location filter
     if (currentUserProfile.latitude && currentUserProfile.longitude) {
         availableProfiles = availableProfiles.filter(p => {
             if (!p.latitude || !p.longitude) return false;
@@ -654,39 +529,18 @@ function App() {
             return distance <= filters.distance;
         });
     }
-
-    // 3. Apply advanced filters (if premium)
     if (currentUserProfile.isPremium) {
-        if (filters.denominations.length > 0) {
-            availableProfiles = availableProfiles.filter(p => p.denomination && filters.denominations.includes(p.denomination));
-        }
-        if (filters.churchName && filters.churchName.trim() !== '') {
-            const searchTerm = filters.churchName.trim().toLowerCase();
-            availableProfiles = availableProfiles.filter(p => 
-                p.churchName && p.churchName.toLowerCase().includes(searchTerm)
-            );
-        }
-        if (filters.churchFrequencies.length > 0) {
-            availableProfiles = availableProfiles.filter(p => p.churchFrequency && filters.churchFrequencies.includes(p.churchFrequency));
-        }
-        if (filters.relationshipGoals.length > 0) {
-            availableProfiles = availableProfiles.filter(p => p.relationshipGoal && filters.relationshipGoals.includes(p.relationshipGoal));
-        }
-        if (filters.verifiedOnly) {
-            availableProfiles = availableProfiles.filter(p => p.isVerified);
-        }
+        if (filters.denominations.length > 0) availableProfiles = availableProfiles.filter(p => p.denomination && filters.denominations.includes(p.denomination));
+        if (filters.churchName && filters.churchName.trim() !== '') availableProfiles = availableProfiles.filter(p => p.churchName && p.churchName.toLowerCase().includes(filters.churchName!.trim().toLowerCase()));
+        if (filters.churchFrequencies.length > 0) availableProfiles = availableProfiles.filter(p => p.churchFrequency && filters.churchFrequencies.includes(p.churchFrequency));
+        if (filters.relationshipGoals.length > 0) availableProfiles = availableProfiles.filter(p => p.relationshipGoal && filters.relationshipGoals.includes(p.relationshipGoal));
+        if (filters.verifiedOnly) availableProfiles = availableProfiles.filter(p => p.isVerified);
     }
-
-    // 4. Smart Matchmaking: Calculate scores
     const profilesWithScores = availableProfiles.map(p => {
         const { score, reason } = calculateCompatibilityScore(currentUserProfile, p, likedMe);
         return { profile: p, score, reason };
     });
-
-    // 5. Sort by the calculated score in descending order
     profilesWithScores.sort((a, b) => b.score - a.score);
-
-    // 6. Update the state with the sorted profiles and their reasons
     setProfiles(profilesWithScores.map(({profile, reason}) => ({profile, reason})));
     setCurrentIndex(0);
   }, [likedProfiles, passedProfiles, filters, currentUserProfile, allOtherUsers, likedMe]);
@@ -695,114 +549,73 @@ function App() {
   const currentProfile = currentProfileWithData?.profile;
   const matchReason = currentProfileWithData?.reason;
 
-
   const distanceToCurrentProfile = useMemo(() => {
-    if (!currentProfile || !currentUserProfile?.latitude || !currentUserProfile?.longitude || !currentProfile.latitude || !currentProfile.longitude) {
-        return null;
-    }
-    return getDistance(
-        currentUserProfile.latitude,
-        currentUserProfile.longitude,
-        currentProfile.latitude,
-        currentProfile.longitude
-    );
+    if (!currentProfile || !currentUserProfile?.latitude || !currentUserProfile?.longitude || !currentProfile.latitude || !currentProfile.longitude) return null;
+    return getDistance(currentUserProfile.latitude, currentUserProfile.longitude, currentProfile.latitude, currentProfile.longitude);
   }, [currentProfile, currentUserProfile]);
 
-
-  const handleSwipe = () => {
-    setCurrentIndex(prev => prev + 1);
-  };
+  const handleSwipe = () => setCurrentIndex(prev => prev + 1);
   
   const executeLike = async (isSuperLike: boolean) => {
     if (!currentProfile || !currentUserProfile) return;
-
     const originalLikedProfiles = likedProfiles;
     setLikedProfiles(prev => [...prev, currentProfile.id]);
-
     const { error } = await supabase.from('likes').insert({
         liker_id: currentUserProfile.id,
         liked_id: currentProfile.id,
         is_super_like: isSuperLike,
     });
-    
     if (error) {
         console.error("Error liking profile:", error);
-        setLikedProfiles(originalLikedProfiles); // Revert on error
+        setLikedProfiles(originalLikedProfiles); 
         return;
     }
-
-    if (likedMe.includes(currentProfile.id)) {
-      setMatchedUser(currentProfile);
-    }
-    
+    if (likedMe.includes(currentProfile.id)) setMatchedUser(currentProfile);
     handleSwipe();
   };
 
   const handleLike = () => executeLike(false);
-
-  const handlePass = () => {
-    if (!currentProfile) return;
-    setPassedProfiles(prev => [...prev, currentProfile.id]);
-    handleSwipe();
-  };
+  const handlePass = () => { if (!currentProfile) return; setPassedProfiles(prev => [...prev, currentProfile.id]); handleSwipe(); };
   
   const handleSuperLike = async () => {
     if (!currentUserProfile) return;
-    if (!currentUserProfile.isPremium) {
-      onGoToSales();
-      return;
-    }
+    if (!currentUserProfile.isPremium) { onGoToSales(); return; }
     if ((currentUserProfile.superLikesRemaining ?? 0) > 0) {
       await updateCurrentUserProfile({ superLikesRemaining: (currentUserProfile.superLikesRemaining ?? 1) - 1 });
       executeLike(true);
-    } else {
-      addToast({ type: 'info', message: "Você não tem mais Super Conexões. Elas renovam semanalmente." });
-    }
+    } else addToast({ type: 'info', message: "Você não tem mais Super Conexões. Elas renovam semanalmente." });
   };
 
   const handleRewind = () => {
-    if (!currentUserProfile?.isPremium) {
-        addToast({ type: 'info', message: "Voltar é um recurso Premium!" });
-        return;
-    }
+    if (!currentUserProfile?.isPremium) { addToast({ type: 'info', message: "Voltar é um recurso Premium!" }); return; }
     if (currentIndex > 0 || passedProfiles.length > 0) {
         const lastPassedId = passedProfiles[passedProfiles.length - 1];
         if (lastPassedId) {
             setPassedProfiles(prev => prev.slice(0, -1));
             setCurrentIndex(prev => Math.max(0, prev - 1));
-             console.log("Rewound to previous profile.");
         }
     }
   };
   
   const handleToggleInvisibleMode = async () => {
-    if (currentUserProfile?.isPremium) {
-      await updateCurrentUserProfile({ isInvisibleMode: !currentUserProfile.isInvisibleMode });
-    }
+    if (currentUserProfile?.isPremium) await updateCurrentUserProfile({ isInvisibleMode: !currentUserProfile.isInvisibleMode });
   };
   
   const handleTogglePauseAccount = async () => {
     if (confirm(`Tem certeza de que deseja ${currentUserProfile?.isPaused ? 'reativar' : 'pausar'} sua conta?`)) {
-        if (currentUserProfile) {
-            await updateCurrentUserProfile({ isPaused: !currentUserProfile.isPaused });
-        }
+        if (currentUserProfile) await updateCurrentUserProfile({ isPaused: !currentUserProfile.isPaused });
     }
   };
   
   const handleConfirmAccountDeletion = async (feedback: Omit<DeletionFeedback, 'userId'>) => {
-      console.log("Feedback de exclusão recebido:", feedback);
       addToast({ type: 'success', message: "Sua conta foi deletada. Sentiremos sua falta!" });
       await handleSignOut();
   };
 
   const handleActivateBoost = () => {
-    if (currentUserProfile?.isPremium && (currentUserProfile.boostsRemaining ?? 0) > 0) {
-        openModal('boost_confirm');
-    } else if (!currentUserProfile?.isPremium) {
-        onGoToSales();
-    } else {
-        addToast({ type: 'info', message: "Você não tem mais Impulsos. Eles renovam semanalmente." });
-    }
+    if (currentUserProfile?.isPremium && (currentUserProfile.boostsRemaining ?? 0) > 0) openModal('boost_confirm');
+    else if (!currentUserProfile?.isPremium) onGoToSales();
+    else addToast({ type: 'info', message: "Você não tem mais Impulsos. Eles renovam semanalmente." });
   };
 
   const confirmAndActivateBoost = async () => {
@@ -822,34 +635,85 @@ function App() {
     setActiveChat(user);
     const newTimestamps = { ...lastReadTimestamps, [user.id]: new Date().toISOString() };
     setLastReadTimestamps(newTimestamps);
-    try {
-        localStorage.setItem('lastReadTimestamps', JSON.stringify(newTimestamps));
-    } catch (error) {
-        console.error("Failed to save timestamps to localStorage", error);
-    }
+    try { localStorage.setItem('lastReadTimestamps', JSON.stringify(newTimestamps)); } catch (error) { console.error("Failed to save timestamps", error); }
   };
 
   const handleConfirmMatch = async (userToMatch: UserProfile) => {
     if (!currentUserProfile) return;
-    
-    // Adiciona à lista de perfis curtidos localmente e no DB
     setLikedProfiles(prev => [...prev, userToMatch.id]);
-
     const { error } = await supabase.from('likes').insert({
         liker_id: currentUserProfile.id,
         liked_id: userToMatch.id,
         is_super_like: false,
     });
+    if (error) setLikedProfiles(prev => prev.filter(id => id !== userToMatch.id));
+    else setMatchedUser(userToMatch);
+  };
+  
+  const handleToggleFavorite = (userId: string) => {
+      setFavoriteProfiles(prev => {
+          if (prev.includes(userId)) {
+              addToast({ type: 'info', message: "Removido dos favoritos" });
+              return prev.filter(id => id !== userId);
+          } else {
+              addToast({ type: 'success', message: "Adicionado aos favoritos" });
+              return [...prev, userId];
+          }
+      });
+  };
 
-    if (error) {
-        console.error("Error confirming match:", "Message:", error.message, "Details:", error.details, "Code:", error.code);
-        // Reverte em caso de erro
-        setLikedProfiles(prev => prev.filter(id => id !== userToMatch.id));
-        return;
-    }
+  const openUnmatchModal = (user: UserProfile, isMutual: boolean) => {
+      setUserToUnmatch(user);
+      setIsUnmatchMutual(isMutual);
+      openModal('unmatch');
+  };
 
-    // Como é uma curtida de volta, aciona o modal de match
-    setMatchedUser(userToMatch);
+  const handleConfirmUnmatchOrRevoke = async () => {
+      if (!userToUnmatch || !currentUserProfile) return;
+
+      const userId = userToUnmatch.id;
+      const isMutual = isUnmatchMutual;
+
+      closeModal(); // Close modal immediately for better UX
+
+      // Optimistic Updates
+      setLikedProfiles(prev => prev.filter(id => id !== userId));
+      
+      // If it was mutual, we also need to remove them from "Liked Me" technically for the match logic to break
+      // But purely removing from likedProfiles breaks the match logic `conversations` memo.
+      // So UI updates automatically.
+
+      if (isMutual) {
+          addToast({ type: 'info', message: `Você desfez o match com ${userToUnmatch.name}.` });
+      } else {
+          addToast({ type: 'info', message: `Curtida para ${userToUnmatch.name} cancelada.` });
+      }
+
+      // DB Updates
+      try {
+          // Remove MY like to THEM
+          const { error: error1 } = await supabase
+              .from('likes')
+              .delete()
+              .eq('liker_id', currentUserProfile.id)
+              .eq('liked_id', userId);
+
+          if (error1) throw error1;
+
+          // If mutual, we could optionally remove THEIR like to ME to completely sever the link,
+          // but usually dating apps just need one side to break the link. 
+          // However, to ensure they disappear from "Received Likes" if they were there, or to stop them seeing me:
+          // Ideally, we just block or delete the match entry. Since we rely on 'likes' table for matches:
+          // Removing my like is enough to break the 'mutual' condition (A likes B AND B likes A).
+          
+      } catch (error) {
+          console.error("Error unmatching/revoking:", error);
+          addToast({ type: 'error', message: "Erro ao processar a solicitação. Tente novamente." });
+          // Revert optimistic update (simplified)
+          setLikedProfiles(prev => [...prev, userId]);
+      }
+      
+      setUserToUnmatch(null);
   };
 
   // Derived lists from tags state
@@ -871,45 +735,25 @@ function App() {
     }
   }, [closeModal, addToast]);
 
-  // Render logic
   const renderContent = () => {
     switch (appStatus) {
-      case 'loading':
-        return <LoadingScreen logoUrl={logoUrl} />;
+      case 'loading': return <LoadingScreen logoUrl={logoUrl} />;
       case 'profile_error':
         return (
           <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-100 text-center p-4">
             <h2 className="text-2xl font-bold text-red-600 mb-4">Erro ao Carregar Perfil</h2>
-            <p className="text-slate-700 mb-8 max-w-sm">
-                Não conseguimos carregar os dados do seu perfil. Isso pode ser um problema temporário de conexão. Por favor, saia e tente fazer login novamente.
-            </p>
-            <button
-                onClick={handleSignOut}
-                className="bg-sky-600 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:bg-sky-700"
-            >
-                Sair e Tentar Novamente
-            </button>
+            <p className="text-slate-700 mb-8 max-w-sm">Não conseguimos carregar os dados do seu perfil. Tente novamente.</p>
+            <button onClick={handleSignOut} className="bg-sky-600 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:bg-sky-700">Sair e Tentar Novamente</button>
           </div>
         );
-      case 'landing':
-        return <LandingPage logoUrl={logoUrl} onEnter={() => setAppStatus('auth')} onShowPrivacyPolicy={() => openModal('privacy')} onShowTermsOfUse={() => openModal('terms')} />;
-      case 'auth':
-        return <AuthModal onClose={() => setAppStatus('landing')} />;
-      case 'create_profile':
-        return (
-          <SetupCheck>
-            <CreateProfile onProfileCreated={handleProfileCreated} denominations={denominations} keyValues={keyValues} interests={interests} languages={languages} />
-          </SetupCheck>
-        );
+      case 'landing': return <LandingPage logoUrl={logoUrl} onEnter={() => setAppStatus('auth')} onShowPrivacyPolicy={() => openModal('privacy')} onShowTermsOfUse={() => openModal('terms')} />;
+      case 'auth': return <AuthModal onClose={() => setAppStatus('landing')} />;
+      case 'create_profile': return <SetupCheck><CreateProfile onProfileCreated={handleProfileCreated} denominations={denominations} keyValues={keyValues} interests={interests} languages={languages} /></SetupCheck>;
       case 'app':
-        if (!currentUserProfile) {
-            return <LoadingScreen logoUrl={logoUrl} />;
-        }
+        if (!currentUserProfile) return <LoadingScreen logoUrl={logoUrl} />;
         
         const mainContent = () => {
-          if (activeChat) {
-            return <ChatScreen match={activeChat} currentUserProfile={currentUserProfile} onBack={() => setActiveChat(null)} />;
-          }
+          if (activeChat) return <ChatScreen match={activeChat} currentUserProfile={currentUserProfile} onBack={() => setActiveChat(null)} />;
           switch (activeView) {
             case 'profiles':
               return currentProfile ? 
@@ -925,19 +769,25 @@ function App() {
                   onGoToSales={onGoToSales}
                   distance={distanceToCurrentProfile}
                   matchReason={matchReason}
+                  isFavorite={favoriteProfiles.includes(currentProfile.id)}
+                  onToggleFavorite={() => handleToggleFavorite(currentProfile.id)}
                 /> : <NoMoreProfiles onGoToFilters={() => openModal('filters')} />;
             case 'matches':
               return <LikesScreen 
                 receivedLikes={matches}
                 sentLikes={sentLikesProfiles}
+                mutualMatches={conversations}
                 superLikedBy={superLikedBy}
                 currentUserProfile={currentUserProfile}
                 onConfirmMatch={handleConfirmMatch}
                 onRemoveMatch={(userId) => setPassedProfiles(p => [...p, userId])}
+                onRevokeLike={(user) => openUnmatchModal(user, false)}
+                onUnmatch={(user) => openUnmatchModal(user, true)}
                 onViewProfile={(user) => { setProfileToDetail(user); openModal('profile_detail'); }}
                 onGoToSales={onGoToSales}
                 activeTab={likesSubView}
                 onTabChange={setLikesSubView}
+                onChat={handleSelectChat}
               />;
             case 'messages':
               return <MessagesScreen conversations={conversations} currentUserProfile={currentUserProfile} onSelectChat={handleSelectChat} />;
@@ -950,24 +800,18 @@ function App() {
                 onSignOut={handleSignOut}
                 onGoToSales={onGoToSales}
               />;
-            default:
-              return <NoMoreProfiles onGoToFilters={() => openModal('filters')} />;
+            default: return <NoMoreProfiles onGoToFilters={() => openModal('filters')} />;
           }
         };
 
         return (
            <SetupCheck>
-              {/* Use h-dvh for dynamic viewport height on mobile */}
               <div className="w-screen h-dvh flex flex-col bg-slate-100">
-                  {/* Main content area that grows and scrolls */}
                   <main className="flex-grow overflow-y-auto">
-                      {/* Inner container for layout control (centering profiles vs. list views) */}
                       <div className={`relative w-full max-w-sm mx-auto ${activeView === 'profiles' ? 'h-full flex flex-col items-center justify-center' : ''}`}>
                           {mainContent()}
                       </div>
                   </main>
-  
-                  {/* BottomNav is now part of the flex flow, not fixed */}
                   {!activeChat && (
                       <BottomNav
                         activeView={activeView}
@@ -987,8 +831,7 @@ function App() {
               </div>
           </SetupCheck>
         );
-      default:
-        return <LandingPage logoUrl={logoUrl} onEnter={() => setAppStatus('auth')} onShowPrivacyPolicy={() => openModal('privacy')} onShowTermsOfUse={() => openModal('terms')} />;
+      default: return <LandingPage logoUrl={logoUrl} onEnter={() => setAppStatus('auth')} onShowPrivacyPolicy={() => openModal('privacy')} onShowTermsOfUse={() => openModal('terms')} />;
     }
   };
 
@@ -996,167 +839,34 @@ function App() {
     if (!currentUserProfile && appStatus !== 'landing' && appStatus !== 'auth') return null;
 
     switch (modalView) {
-      case 'sales':
-        return <SalesPage onClose={closeModal} onPurchaseSuccess={handlePurchaseSuccess} />;
-      case 'filters':
-        if(!currentUserProfile) return null;
-        return <FilterScreen onClose={closeModal} onApply={(f) => { setFilters(f); closeModal(); }} onGoToSales={onGoToSales} currentFilters={filters} isPremiumUser={currentUserProfile.isPremium} denominations={denominations} />;
-      case 'settings':
-        if(!currentUserProfile) return null;
-        return <SettingsScreen 
-            currentUserProfile={currentUserProfile}
-            onClose={closeModal} 
-            onEditProfile={() => openModal('edit_profile')}
-            onSignOut={handleSignOut}
-            onToggleInvisibleMode={handleToggleInvisibleMode}
-            onTogglePauseAccount={handleTogglePauseAccount}
-            onDeleteAccountRequest={() => openModal('delete')}
-            onShowPrivacyPolicy={() => openModal('privacy')}
-            onShowTermsOfUse={() => openModal('terms')}
-            onShowCookiePolicy={() => openModal('cookies')}
-            onShowCommunityRules={() => openModal('community')}
-            onShowSafetyTips={() => openModal('safety')}
-            onShowHelpAndSupport={() => openModal('support')}
-            onVerifyProfileRequest={() => openModal('face_verification_prompt')}
-            onGoToSales={onGoToSales}
-        />;
-      case 'edit_profile':
-        if (!currentUserProfile) return null;
-        return <CreateProfile
-            onProfileCreated={handleProfileCreated}
-            isEditing={true}
-            onClose={closeModal}
-            denominations={denominations} 
-            keyValues={keyValues} 
-            interests={interests}
-            languages={languages}
-        />;
-      case 'block':
-        if (!userToBlockOrReport) return null;
-        return <BlockUserModal profile={userToBlockOrReport} onClose={closeModal} onConfirm={() => { addToast({type: 'info', message: `Bloqueado ${userToBlockOrReport.name}`}); closeModal(); handlePass(); }} />;
-      case 'report':
-        if (!userToBlockOrReport || !currentUserProfile) return null;
-        return <ReportUserModal
-            profile={userToBlockOrReport}
-            onClose={closeModal}
-            onSubmit={async (reason: ReportReason, details: string, files: File[]) => {
-                const uploadedUrls: string[] = [];
-
-                for (const file of files) {
-                    const fileName = `${currentUserProfile.id}/report_evidence/${Date.now()}_${file.name}`;
-                    // A new bucket 'report-evidence' needs to be created in Supabase Storage with public read access.
-                    const { error: uploadError } = await supabase.storage
-                        .from('report-evidence')
-                        .upload(fileName, file);
-
-                    if (uploadError) {
-                        console.error("Error uploading evidence:", uploadError);
-                        addToast({ type: 'error', message: "Falha ao enviar uma das evidências. A denúncia não foi enviada."});
-                        return false;
-                    }
-
-                    const { data } = supabase.storage
-                        .from('report-evidence')
-                        .getPublicUrl(fileName);
-                    
-                    if (data.publicUrl) {
-                        uploadedUrls.push(data.publicUrl);
-                    }
-                }
-
-                // A new table 'reports' needs to be created in Supabase.
-                const { error: reportError } = await supabase
-                    .from('reports')
-                    .insert({
-                        reporter_id: currentUserProfile.id,
-                        reported_id: userToBlockOrReport.id,
-                        reason,
-                        details,
-                        status: 'Pendente',
-                        evidence_urls: uploadedUrls.length > 0 ? uploadedUrls : null,
-                    });
-
-                if (reportError) {
-                    console.error("Error submitting report:", reportError);
-                    addToast({ type: 'error', message: "Falha ao enviar denúncia. Tente novamente."});
-                    return false;
-                }
-                
-                // Success case is handled inside the modal (shows a success message)
-                handlePass(); // Automatically pass the reported user
-                return true; 
-            }}
-        />;
-      case 'delete':
-        return <DeleteAccountModal onClose={closeModal} onSubmit={handleConfirmAccountDeletion} />;
+      case 'sales': return <SalesPage onClose={closeModal} onPurchaseSuccess={handlePurchaseSuccess} />;
+      case 'filters': if(!currentUserProfile) return null; return <FilterScreen onClose={closeModal} onApply={(f) => { setFilters(f); closeModal(); }} onGoToSales={onGoToSales} currentFilters={filters} isPremiumUser={currentUserProfile.isPremium} denominations={denominations} />;
+      case 'settings': if(!currentUserProfile) return null; return <SettingsScreen currentUserProfile={currentUserProfile} onClose={closeModal} onEditProfile={() => openModal('edit_profile')} onSignOut={handleSignOut} onToggleInvisibleMode={handleToggleInvisibleMode} onTogglePauseAccount={handleTogglePauseAccount} onDeleteAccountRequest={() => openModal('delete')} onShowPrivacyPolicy={() => openModal('privacy')} onShowTermsOfUse={() => openModal('terms')} onShowCookiePolicy={() => openModal('cookies')} onShowCommunityRules={() => openModal('community')} onShowSafetyTips={() => openModal('safety')} onShowHelpAndSupport={() => openModal('support')} onVerifyProfileRequest={() => openModal('face_verification_prompt')} onGoToSales={onGoToSales} />;
+      case 'edit_profile': if (!currentUserProfile) return null; return <CreateProfile onProfileCreated={handleProfileCreated} isEditing={true} onClose={closeModal} denominations={denominations} keyValues={keyValues} interests={interests} languages={languages} />;
+      case 'block': if (!userToBlockOrReport) return null; return <BlockUserModal profile={userToBlockOrReport} onClose={closeModal} onConfirm={() => { addToast({type: 'info', message: `Bloqueado ${userToBlockOrReport.name}`}); closeModal(); handlePass(); }} />;
+      case 'report': if (!userToBlockOrReport || !currentUserProfile) return null; return <ReportUserModal profile={userToBlockOrReport} onClose={closeModal} onSubmit={async (reason: ReportReason, details: string, files: File[]) => { const uploadedUrls: string[] = []; for (const file of files) { const fileName = `${currentUserProfile.id}/report_evidence/${Date.now()}_${file.name}`; const { error: uploadError } = await supabase.storage.from('report-evidence').upload(fileName, file); if (uploadError) { addToast({ type: 'error', message: "Falha ao enviar uma das evidências. A denúncia não foi enviada."}); return false; } const { data } = supabase.storage.from('report-evidence').getPublicUrl(fileName); if (data.publicUrl) uploadedUrls.push(data.publicUrl); } const { error: reportError } = await supabase.from('reports').insert({ reporter_id: currentUserProfile.id, reported_id: userToBlockOrReport.id, reason, details, status: 'Pendente', evidence_urls: uploadedUrls.length > 0 ? uploadedUrls : null, }); if (reportError) { addToast({ type: 'error', message: "Falha ao enviar denúncia. Tente novamente."}); return false; } handlePass(); return true; }} />;
+      case 'delete': return <DeleteAccountModal onClose={closeModal} onSubmit={handleConfirmAccountDeletion} />;
       case 'privacy': return <PrivacyPolicyScreen onClose={closeModal} />;
       case 'terms': return <TermsOfUseScreen onClose={closeModal} />;
       case 'cookies': return <CookiePolicyScreen onClose={closeModal} />;
       case 'community': return <CommunityRulesScreen onClose={closeModal} />;
       case 'safety': return <SafetyTipsScreen onClose={closeModal} />;
-      case 'support': 
-        if(!currentUserProfile) return null;
-        return <HelpAndSupportScreen onClose={closeModal} currentUserProfile={currentUserProfile} />;
-      case 'face_verification_prompt': 
-        if(!currentUserProfile) return null;
-        return <FaceVerificationModal 
-          onClose={closeModal} 
-          onStartVerification={() => openModal('face_verification_flow')} 
-        />;
-      case 'face_verification_flow': 
-        if(!currentUserProfile) return null;
-        return <FaceVerification 
-          userProfile={currentUserProfile}
-          onBack={closeModal} 
-          onComplete={async (status: VerificationStatus) => {
-              // A lógica de inserção no DB e upload já está no componente FaceVerification.
-              // Este callback atualiza o estado principal do app.
-              await updateCurrentUserProfile({ 
-                  face_verification_status: status,
-                  // Atualiza o status geral de verificação se aprovado automaticamente
-                  isVerified: status === VerificationStatus.VERIFIED ? true : currentUserProfile.isVerified 
-              });
-              
-              // O componente FaceVerification mostra uma tela de sucesso.
-              // Após um tempo, fechamos o modal.
-              if (status === VerificationStatus.VERIFIED) {
-                  setTimeout(() => {
-                    closeModal(); 
-                  }, 2000); 
-              }
-              // Se falhar, o componente tem um botão "Tentar Novamente". O 'onBack' pode fechar o fluxo.
-        }} />;
-      case 'boost_confirm': 
-        if(!currentUserProfile) return null;
-        return <BoostConfirmationModal onClose={closeModal} onConfirm={confirmAndActivateBoost} boostCount={currentUserProfile.boostsRemaining ?? 0} />;
-      case 'peak_time': 
-        if(!currentUserProfile) return null;
-        return <PeakTimeModal userProfile={currentUserProfile} onClose={closeModal} onActivateBoost={handleActivateBoost} onGoToPremium={() => { openModal('sales'); }} />;
+      case 'support': if(!currentUserProfile) return null; return <HelpAndSupportScreen onClose={closeModal} currentUserProfile={currentUserProfile} />;
+      case 'face_verification_prompt': if(!currentUserProfile) return null; return <FaceVerificationModal onClose={closeModal} onStartVerification={() => openModal('face_verification_flow')} />;
+      case 'face_verification_flow': if(!currentUserProfile) return null; return <FaceVerification userProfile={currentUserProfile} onBack={closeModal} onComplete={async (status: VerificationStatus) => { await updateCurrentUserProfile({ face_verification_status: status, isVerified: status === VerificationStatus.VERIFIED ? true : currentUserProfile.isVerified }); if (status === VerificationStatus.VERIFIED) setTimeout(() => { closeModal(); }, 2000); }} />;
+      case 'boost_confirm': if(!currentUserProfile) return null; return <BoostConfirmationModal onClose={closeModal} onConfirm={confirmAndActivateBoost} boostCount={currentUserProfile.boostsRemaining ?? 0} />;
+      case 'peak_time': if(!currentUserProfile) return null; return <PeakTimeModal userProfile={currentUserProfile} onClose={closeModal} onActivateBoost={handleActivateBoost} onGoToPremium={() => { openModal('sales'); }} />;
+      case 'unmatch': if(!userToUnmatch) return null; return <UnmatchModal profile={userToUnmatch} onClose={closeModal} onConfirm={handleConfirmUnmatchOrRevoke} isMutual={isUnmatchMutual} />;
       case 'profile_detail': {
         if (!profileToDetail || !currentUserProfile) return null;
         let distanceToDetail: number | null = null;
         if (currentUserProfile.latitude && currentUserProfile.longitude && profileToDetail.latitude && profileToDetail.longitude) {
             distanceToDetail = getDistance(currentUserProfile.latitude, currentUserProfile.longitude, profileToDetail.latitude, profileToDetail.longitude);
         }
-        // Recalculate match reason for consistency
         const { reason } = calculateCompatibilityScore(currentUserProfile, profileToDetail, likedMe);
-        return <ProfileDetailModal 
-                  profile={profileToDetail}
-                  onClose={closeModal}
-                  onConfirmMatch={() => {
-                      setLikedProfiles(p => [...p, profileToDetail.id]);
-                      setMatchedUser(profileToDetail); 
-                      closeModal();
-                  }}
-                  onRemoveMatch={() => {setPassedProfiles(p => [...p, profileToDetail.id]); closeModal();}}
-                  onBlock={() => {setUserToBlockOrReport(profileToDetail); openModal('block')}}
-                  onReport={() => {setUserToBlockOrReport(profileToDetail); openModal('report')}}
-                  distance={distanceToDetail}
-                  matchReason={reason}
-                />;
+        return <ProfileDetailModal profile={profileToDetail} onClose={closeModal} onConfirmMatch={() => { setLikedProfiles(p => [...p, profileToDetail.id]); setMatchedUser(profileToDetail); closeModal(); }} onRemoveMatch={() => {setPassedProfiles(p => [...p, profileToDetail.id]); closeModal();}} onBlock={() => {setUserToBlockOrReport(profileToDetail); openModal('block')}} onReport={() => {setUserToBlockOrReport(profileToDetail); openModal('report')}} distance={distanceToDetail} matchReason={reason} />;
       }
-      default:
-        return null;
+      default: return null;
     }
   };
 
