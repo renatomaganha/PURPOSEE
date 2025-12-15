@@ -450,7 +450,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
 
             {/* Overlay com informações dinâmicas */}
             <div
-                className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white transition-opacity duration-150 z-10"
+                className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white transition-opacity duration-150 z-20"
                 style={{ opacity: overlayOpacity }}
             >
                 {renderOverlayContent()}
