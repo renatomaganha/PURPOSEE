@@ -78,6 +78,12 @@ const dbProfileToAppProfile = (dbData: any): Partial<UserProfile> => {
 
 const appProfileToDbProfile = (appData: Partial<UserProfile>): any => {
     if (!appData) return {};
+    
+    // Filtra fotos nulas para evitar erro de array malformado no Postgres
+    const sanitizedPhotos = appData.photos 
+        ? appData.photos.filter(p => p && typeof p === 'string' && p.trim() !== '') 
+        : [];
+
     return {
         id: appData.id,
         email: appData.email,
@@ -87,9 +93,9 @@ const appProfileToDbProfile = (appData: Partial<UserProfile>): any => {
         gender: appData.gender,
         seeking: appData.seeking,
         location: appData.location,
-        latitude: appData.latitude,
-        longitude: appData.longitude,
-        photos: appData.photos,
+        latitude: appData.latitude || null,
+        longitude: appData.longitude || null,
+        photos: sanitizedPhotos,
         private_photo: appData.privatePhoto,
         video: appData.video,
         bio: appData.bio,
@@ -244,6 +250,9 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                         if(isEditing) {
                             setInitialProfileData(fullProfileData);
                         }
+                    } else if (!isEditing) {
+                        // Se não tem perfil e não está editando, preenche o email automaticamente do user
+                        setProfileData(prev => ({ ...prev, email: user.email }));
                     }
                 } catch (e: any) {
                     console.error("Erro catastrófico ao buscar perfil:", e.message, e);
@@ -460,19 +469,34 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
 
         const dbData = appProfileToDbProfile(finalProfile);
 
-        const { data, error: upsertError } = await supabase
-            .from('user_profiles')
-            .upsert(dbData, { onConflict: 'id' })
-            .select()
-            .single();
+        try {
+            const { data, error: upsertError } = await supabase
+                .from('user_profiles')
+                .upsert(dbData, { onConflict: 'id' })
+                .select()
+                .single();
 
-        setIsSubmitting(false);
+            if (upsertError) {
+                console.error("Error saving profile (DB):", upsertError);
+                throw upsertError;
+            }
 
-        if (upsertError) {
-            console.error("Error saving profile:", upsertError);
-            setError(`Ocorreu um erro ao salvar seu perfil: ${upsertError.message}`);
-        } else {
+            // Sucesso!
+            setIsSubmitting(false);
             onProfileCreated(dbProfileToAppProfile(data) as UserProfile, isEditing);
+
+        } catch (error: any) {
+            setIsSubmitting(false);
+            console.error("Error submitting profile:", error);
+            
+            // Tratamento de erros comuns
+            if (error.message && error.message.includes('violates row-level security policy')) {
+                setError("Erro de permissão: Não foi possível salvar seu perfil. Tente sair e entrar novamente.");
+            } else if (error.code === '23505') { // Unique violation
+                setError("Erro: Este perfil já existe ou há um conflito de dados.");
+            } else {
+                setError(`Ocorreu um erro ao salvar seu perfil: ${error.message || 'Erro desconhecido'}`);
+            }
         }
     };
     
@@ -725,9 +749,15 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                             <label className="font-semibold">{t('yourName')}</label>
                             <input type="text" name="name" placeholder={t('yourNamePlaceholder')} onChange={handleChange} value={profileData.name || ''} className="w-full mt-1 p-2 border rounded" />
                         </div>
-                         <div>
-                            <label className="font-semibold">{t('dob')}</label>
-                            <input type="date" name="dob" onChange={handleChange} value={profileData.dob || ''} className="w-full mt-1 p-2 border rounded" />
+                         <div className="grid grid-cols-2 gap-4">
+                             <div>
+                                <label className="font-semibold">{t('dob')}</label>
+                                <input type="date" name="dob" onChange={handleChange} value={profileData.dob || ''} className="w-full mt-1 p-2 border rounded" />
+                            </div>
+                            <div>
+                                <label className="font-semibold">{t('height')}</label>
+                                <input type="tel" inputMode="numeric" name="height" placeholder={t('heightPlaceholder')} onChange={handleChange} value={profileData.height || ''} className="w-full mt-1 p-2 border rounded" />
+                            </div>
                         </div>
                         <div>
                             <label className="font-semibold">{t('iam')}</label>
@@ -813,6 +843,26 @@ export const CreateProfile: React.FC<CreateProfileProps> = ({
                                 {denominations.map(d => <option key={d.id} value={d.name}>{d.emoji} {d.name}</option>)}
                             </select>
                         </div>
+                        
+                        {/* Novos campos adicionados para paridade com a edição */}
+                        <div>
+                            <label className="font-semibold text-sm text-slate-600">Nome da Igreja <span className="font-normal text-slate-400">(Opcional)</span></label>
+                            <input type="text" name="churchName" placeholder="Ex: Igreja da Cidade" onChange={handleChange} value={profileData.churchName || ''} className="w-full mt-1 p-2 border rounded" />
+                        </div>
+                        <div>
+                            <label className="font-semibold text-sm text-slate-600">Louvor / Música Favorita</label>
+                            <input type="text" name="favoriteSong" placeholder="Ex: Ousado Amor" onChange={handleChange} value={profileData.favoriteSong || ''} className="w-full mt-1 p-2 border rounded" />
+                        </div>
+                         <div>
+                            <label className="font-semibold text-sm text-slate-600">Versículo Favorito</label>
+                            <input type="text" name="favoriteVerse" placeholder="Ex: Filipenses 4:13" onChange={handleChange} value={profileData.favoriteVerse || ''} className="w-full mt-1 p-2 border rounded" />
+                        </div>
+                        <div>
+                            <label className="font-semibold text-sm text-slate-600">Livro Favorito</label>
+                            <input type="text" name="favoriteBook" placeholder="Ex: As Crônicas de Nárnia" onChange={handleChange} value={profileData.favoriteBook || ''} className="w-full mt-1 p-2 border rounded" />
+                        </div>
+                        {/* Fim dos novos campos */}
+
                          <div>
                             <label className="font-semibold">{t('faithValuesPrompt')}</label>
                              <div className="flex flex-wrap mt-2">
