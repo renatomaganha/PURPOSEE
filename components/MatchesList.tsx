@@ -12,7 +12,7 @@ interface MatchesListProps {
   matches: UserProfile[];
   superLikedBy: string[];
   onConfirmMatch: (user: UserProfile) => void;
-  onRemoveMatch: (userId: string) => void;
+  onRemoveMatch: (user: UserProfile) => void;
   onViewProfile: (user: UserProfile) => void;
   onGoToSales: () => void;
   currentUserProfile: UserProfile;
@@ -100,7 +100,7 @@ export const MatchesList: React.FC<MatchesListProps> = ({ matches, superLikedBy,
               </div>
               <div className="flex items-center space-x-2">
                  <button 
-                    onClick={() => onRemoveMatch(match.id)} 
+                    onClick={() => onRemoveMatch(match)} 
                     disabled={!canView}
                     className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center hover:bg-red-100 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-200 disabled:hover:text-slate-600"
                     aria-label="Recusar curtida"

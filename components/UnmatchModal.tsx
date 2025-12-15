@@ -3,14 +3,42 @@ import { UserProfile } from '../types';
 import { UserMinusIcon } from './icons/UserMinusIcon';
 import { XIcon } from './icons/XIcon';
 
+export type UnmatchMode = 'unmatch' | 'revoke' | 'reject';
+
 interface UnmatchModalProps {
   profile: UserProfile;
   onClose: () => void;
   onConfirm: () => void;
-  isMutual: boolean; // True se for desfazer match, False se for cancelar curtida enviada
+  mode: UnmatchMode;
 }
 
-export const UnmatchModal: React.FC<UnmatchModalProps> = ({ profile, onClose, onConfirm, isMutual }) => {
+export const UnmatchModal: React.FC<UnmatchModalProps> = ({ profile, onClose, onConfirm, mode }) => {
+  
+  const getContent = () => {
+      switch (mode) {
+          case 'unmatch':
+              return {
+                  title: `Desfazer Match com ${profile.name}?`,
+                  description: "Ao desfazer o match, vocês não poderão mais trocar mensagens e o perfil desaparecerá da sua lista de conversas. Essa ação não pode ser desfeita.",
+                  buttonText: "Sim, Desfazer Match"
+              };
+          case 'revoke':
+              return {
+                  title: `Cancelar curtida para ${profile.name}?`,
+                  description: "A pessoa não receberá mais sua notificação de curtida. Você terá que aguardar o perfil aparecer novamente para curtir.",
+                  buttonText: "Sim, Cancelar Curtida"
+              };
+          case 'reject':
+              return {
+                  title: `Recusar curtida de ${profile.name}?`,
+                  description: "Este perfil será removido da sua lista de curtidas recebidas. Você não verá mais esta notificação.",
+                  buttonText: "Sim, Recusar"
+              };
+      }
+  };
+
+  const content = getContent();
+
   return (
     <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
@@ -29,14 +57,11 @@ export const UnmatchModal: React.FC<UnmatchModalProps> = ({ profile, onClose, on
         </div>
 
         <h2 className="text-xl font-bold text-slate-800 mb-2">
-            {isMutual ? `Desfazer Match com ${profile.name}?` : `Cancelar curtida para ${profile.name}?`}
+            {content.title}
         </h2>
         
         <p className="text-sm text-slate-600 mb-6">
-            {isMutual 
-                ? "Ao desfazer o match, vocês não poderão mais trocar mensagens e o perfil desaparecerá da sua lista de conversas. Essa ação não pode ser desfeita."
-                : "A pessoa não receberá mais sua notificação de curtida. Você terá que aguardar o perfil aparecer novamente para curtir."
-            }
+            {content.description}
         </p>
 
         <div className="flex flex-col gap-3">
@@ -44,7 +69,7 @@ export const UnmatchModal: React.FC<UnmatchModalProps> = ({ profile, onClose, on
                 onClick={onConfirm}
                 className="w-full bg-red-600 text-white font-bold py-3 rounded-full hover:bg-red-700 transition-colors"
             >
-                {isMutual ? "Sim, Desfazer Match" : "Sim, Cancelar Curtida"}
+                {content.buttonText}
             </button>
              <button
                 onClick={onClose}

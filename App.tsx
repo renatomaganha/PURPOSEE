@@ -36,7 +36,7 @@ import { useLanguage } from './contexts/LanguageContext';
 import { ToastContainer } from './components/ToastContainer';
 import { useToast } from './contexts/ToastContext';
 import { SalesPage } from './components/SalesPage';
-import { UnmatchModal } from './components/UnmatchModal';
+import { UnmatchModal, UnmatchMode } from './components/UnmatchModal';
 
 
 type AppStatus = 'landing' | 'auth' | 'create_profile' | 'loading' | 'app' | 'profile_error';
@@ -216,7 +216,7 @@ function App() {
   const [matchedUser, setMatchedUser] = useState<UserProfile | null>(null);
   const [userToBlockOrReport, setUserToBlockOrReport] = useState<UserProfile | null>(null);
   const [userToUnmatch, setUserToUnmatch] = useState<UserProfile | null>(null); // Estado para o usuário a ser desfeito o match ou like
-  const [isUnmatchMutual, setIsUnmatchMutual] = useState(false); // Flag para distinguir entre desfazer match ou cancelar like
+  const [unmatchMode, setUnmatchMode] = useState<UnmatchMode>('unmatch'); // Flag para distinguir entre os tipos de ação
   
   const [isPremiumSaleActive] = useState(true);
   const [tags] = useState<Tag[]>(mockTags);
@@ -662,9 +662,9 @@ function App() {
       });
   };
 
-  const openUnmatchModal = (user: UserProfile, isMutual: boolean) => {
+  const openUnmatchModal = (user: UserProfile, mode: UnmatchMode) => {
       setUserToUnmatch(user);
-      setIsUnmatchMutual(isMutual);
+      setUnmatchMode(mode);
       openModal('unmatch');
   };
 
@@ -672,41 +672,48 @@ function App() {
       if (!userToUnmatch || !currentUserProfile) return;
 
       const userId = userToUnmatch.id;
-      const isMutual = isUnmatchMutual;
+      const mode = unmatchMode;
 
       closeModal(); 
 
-      // 1. Remove da lista local de perfis curtidos (desfaz a curtida enviada)
-      setLikedProfiles(prev => prev.filter(id => id !== userId));
+      // Optimistic updates
+      if (mode === 'unmatch' || mode === 'revoke') {
+          // Remove my like
+          setLikedProfiles(prev => prev.filter(id => id !== userId));
+      } 
       
-      // 2. Se for um match mútuo, adiciona aos perfis 'passados' para não reaparecer em "Curtidas Recebidas"
-      // ou no deck principal imediatamente.
-      if (isMutual) {
+      if (mode === 'reject' || mode === 'unmatch') {
+          // Add to passed profiles so they don't show up in matches list anymore
           setPassedProfiles(prev => [...prev, userId]);
-          addToast({ type: 'info', message: `Você desfez o match com ${userToUnmatch.name}.` });
-      } else {
-          addToast({ type: 'info', message: `Curtida para ${userToUnmatch.name} cancelada.` });
       }
 
-      // 3. Atualização no Banco de Dados
-      try {
-          // Remove MEU like para ELE(A)
-          const { error: error1 } = await supabase
-              .from('likes')
-              .delete()
-              .eq('liker_id', currentUserProfile.id)
-              .eq('liked_id', userId);
+      // Toasts
+      if (mode === 'unmatch') addToast({ type: 'info', message: `Você desfez o match com ${userToUnmatch.name}.` });
+      else if (mode === 'revoke') addToast({ type: 'info', message: `Curtida para ${userToUnmatch.name} cancelada.` });
+      else if (mode === 'reject') addToast({ type: 'info', message: `Curtida de ${userToUnmatch.name} recusada.` });
 
-          if (error1) throw error1;
+      // DB Updates
+      try {
+          if (mode === 'unmatch' || mode === 'revoke') {
+              // Delete MY like
+              const { error } = await supabase
+                  .from('likes')
+                  .delete()
+                  .eq('liker_id', currentUserProfile.id)
+                  .eq('liked_id', userId);
+              if (error) throw error;
+          }
+          // For 'reject', effectively we are just passing them. 
+          // If we wanted to permanently reject, we'd add to a 'passes' table, 
+          // but for now local state + passedProfiles handles the UI.
+          // Note: In a real app, you would insert into a 'passes' table here.
           
       } catch (error) {
           console.error("Error unmatching/revoking:", error);
           addToast({ type: 'error', message: "Erro ao processar a solicitação. Tente novamente." });
-          // Reverte a atualização otimista (simplificado)
-          setLikedProfiles(prev => [...prev, userId]);
-          if (isMutual) {
-              setPassedProfiles(prev => prev.filter(id => id !== userId));
-          }
+          // Revert optimistic updates (simplified)
+          if (mode === 'unmatch' || mode === 'revoke') setLikedProfiles(prev => [...prev, userId]);
+          if (mode === 'reject' || mode === 'unmatch') setPassedProfiles(prev => prev.filter(id => id !== userId));
       }
       
       setUserToUnmatch(null);
@@ -776,9 +783,9 @@ function App() {
                 superLikedBy={superLikedBy}
                 currentUserProfile={currentUserProfile}
                 onConfirmMatch={handleConfirmMatch}
-                onRemoveMatch={(userId) => setPassedProfiles(p => [...p, userId])}
-                onRevokeLike={(user) => openUnmatchModal(user, false)}
-                onUnmatch={(user) => openUnmatchModal(user, true)}
+                onRemoveMatch={(user) => openUnmatchModal(user, 'reject')}
+                onRevokeLike={(user) => openUnmatchModal(user, 'revoke')}
+                onUnmatch={(user) => openUnmatchModal(user, 'unmatch')}
                 onViewProfile={(user) => { setProfileToDetail(user); openModal('profile_detail'); }}
                 onGoToSales={onGoToSales}
                 activeTab={likesSubView}
@@ -852,7 +859,7 @@ function App() {
       case 'face_verification_flow': if(!currentUserProfile) return null; return <FaceVerification userProfile={currentUserProfile} onBack={closeModal} onComplete={async (status: VerificationStatus) => { await updateCurrentUserProfile({ face_verification_status: status, isVerified: status === VerificationStatus.VERIFIED ? true : currentUserProfile.isVerified }); if (status === VerificationStatus.VERIFIED) setTimeout(() => { closeModal(); }, 2000); }} />;
       case 'boost_confirm': if(!currentUserProfile) return null; return <BoostConfirmationModal onClose={closeModal} onConfirm={confirmAndActivateBoost} boostCount={currentUserProfile.boostsRemaining ?? 0} />;
       case 'peak_time': if(!currentUserProfile) return null; return <PeakTimeModal userProfile={currentUserProfile} onClose={closeModal} onActivateBoost={handleActivateBoost} onGoToPremium={() => { openModal('sales'); }} />;
-      case 'unmatch': if(!userToUnmatch) return null; return <UnmatchModal profile={userToUnmatch} onClose={closeModal} onConfirm={handleConfirmUnmatchOrRevoke} isMutual={isUnmatchMutual} />;
+      case 'unmatch': if(!userToUnmatch) return null; return <UnmatchModal profile={userToUnmatch} onClose={closeModal} onConfirm={handleConfirmUnmatchOrRevoke} mode={unmatchMode} />;
       case 'profile_detail': {
         if (!profileToDetail || !currentUserProfile) return null;
         let distanceToDetail: number | null = null;

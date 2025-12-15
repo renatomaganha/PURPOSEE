@@ -12,7 +12,7 @@ interface LikesScreenProps {
   superLikedBy: string[];
   currentUserProfile: UserProfile;
   onConfirmMatch: (user: UserProfile) => void;
-  onRemoveMatch: (userId: string) => void; // Recusar curtida recebida
+  onRemoveMatch: (user: UserProfile) => void; // Recusar curtida recebida
   onRevokeLike: (user: UserProfile) => void; // Cancelar curtida enviada
   onUnmatch: (user: UserProfile) => void; // Desfazer match mútuo
   onViewProfile: (user: UserProfile) => void;
