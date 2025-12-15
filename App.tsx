@@ -248,7 +248,7 @@ function App() {
   });
   const [unreadCounts, setUnreadCounts] = useState<{[chatId: string]: number}>({});
 
-  const [likesSubView, setLikesSubView] = useState<'received' | 'sent' | 'matches'>('received');
+  const [likesSubView, setLikesSubView] = useState<'received' | 'sent' | 'matches' | 'favorites'>('received');
 
   const openModal = (view: ModalView) => {
     if (view === modalView) return; 
@@ -438,6 +438,11 @@ function App() {
     const mutualIds = likedProfiles.filter(id => likedMe.includes(id));
     return allOtherUsers.filter(u => mutualIds.includes(u.id));
   }, [allOtherUsers, likedProfiles, likedMe]);
+
+  // Nova computação para a lista de usuários favoritos
+  const favoriteUsersList = useMemo(() => {
+      return allOtherUsers.filter(u => favoriteProfiles.includes(u.id));
+  }, [allOtherUsers, favoriteProfiles]);
 
   useEffect(() => {
     if (!currentUserProfile || conversations.length === 0) {
@@ -793,12 +798,14 @@ function App() {
                 receivedLikes={matches}
                 sentLikes={sentLikesProfiles}
                 mutualMatches={conversations}
+                favoriteProfiles={favoriteUsersList} // Passando a lista de objetos de favoritos
                 superLikedBy={superLikedBy}
                 currentUserProfile={currentUserProfile}
                 onConfirmMatch={handleConfirmMatch}
                 onRemoveMatch={(user) => openUnmatchModal(user, 'reject')}
                 onRevokeLike={(user) => openUnmatchModal(user, 'revoke')}
                 onUnmatch={(user) => openUnmatchModal(user, 'unmatch')}
+                onRemoveFavorite={(user) => handleToggleFavorite(user.id)} // Passando a função de remover
                 onViewProfile={(user) => { setProfileToDetail(user); openModal('profile_detail'); }}
                 onGoToSales={onGoToSales}
                 activeTab={likesSubView}
