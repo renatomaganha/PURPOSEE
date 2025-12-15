@@ -290,7 +290,7 @@ function App() {
       if (updates.isInvisibleMode !== undefined) dbPayload.is_invisible_mode = updates.isInvisibleMode;
       if (updates.isPaused !== undefined) dbPayload.is_paused = updates.isPaused;
       if (updates.isVerified !== undefined) dbPayload.is_verified = updates.isVerified;
-      if (updates.face_verification_status !== undefined) dbPayload.face_verification_status = updates.face_verification_status;
+      // face_verification_status removed from DB payload
       if (updates.isPremium !== undefined) dbPayload.is_premium = updates.isPremium;
 
       if (Object.keys(dbPayload).length === 0) return;

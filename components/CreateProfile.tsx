@@ -112,7 +112,7 @@ const appProfileToDbProfile = (appData: Partial<UserProfile>): any => {
         interests: appData.interests,
         languages: appData.languages,
         is_verified: appData.isVerified,
-        face_verification_status: appData.face_verification_status,
+        // face_verification_status: appData.face_verification_status, // Removido pois a coluna não existe no DB
         is_premium: appData.isPremium,
         is_invisible_mode: appData.isInvisibleMode,
         is_paused: appData.isPaused,
