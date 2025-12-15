@@ -57,6 +57,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
   
   // Swipe state
   const cardRef = useRef<HTMLDivElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null); // Ref para aplicar o blur apenas na imagem
   const [isSwiping, setIsSwiping] = useState(false);
   const [startX, setStartX] = useState(0);
   const [deltaX, setDeltaX] = useState(0);
@@ -80,6 +81,10 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
         cardRef.current.style.transition = 'none';
         cardRef.current.style.transform = '';
         cardRef.current.style.opacity = '1';
+    }
+    if (imageContainerRef.current) {
+        imageContainerRef.current.style.transition = 'none';
+        imageContainerRef.current.style.filter = 'none';
     }
   }, [profile.id]);
 
@@ -117,7 +122,8 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
     if (isDetailsVisible) return;
     setIsSwiping(true);
     setStartX(e.clientX);
-    cardRef.current!.style.transition = 'none';
+    if (cardRef.current) cardRef.current.style.transition = 'none';
+    if (imageContainerRef.current) imageContainerRef.current.style.transition = 'none';
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -125,14 +131,27 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
     const currentX = e.clientX;
     const dx = currentX - startX;
     setDeltaX(dx);
-    const rotation = dx / 20; // rotation effect
+    
+    // Efeito de Rotação mais pronunciado
+    const rotation = dx * 0.08; 
     cardRef.current.style.transform = `translateX(${dx}px) rotate(${rotation}deg)`;
+
+    // Efeito de Blur progressivo na imagem
+    if (imageContainerRef.current) {
+        const blurAmount = Math.min(Math.abs(dx) / 15, 8); // Max 8px blur
+        imageContainerRef.current.style.filter = `blur(${blurAmount}px)`;
+    }
   };
   
   const handlePointerUp = () => {
     if (!isSwiping || !cardRef.current) return;
     setIsSwiping(false);
-    cardRef.current!.style.transition = 'transform 0.3s ease-out';
+    
+    // Restaurar transições para animação suave
+    cardRef.current.style.transition = 'transform 0.3s ease-out';
+    if (imageContainerRef.current) {
+        imageContainerRef.current.style.transition = 'filter 0.3s ease-out';
+    }
     
     if (deltaX > SWIPE_THRESHOLD) { // Right swipe
       cardRef.current.style.transform = `translateX(100vw) rotate(30deg)`;
@@ -142,6 +161,9 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
       onPass();
     } else { // Return to center
       cardRef.current.style.transform = '';
+      if (imageContainerRef.current) {
+          imageContainerRef.current.style.filter = 'none';
+      }
     }
     setDeltaX(0);
   };
@@ -164,6 +186,12 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
       setTimeout(() => {
           if (!cardRef.current) return;
           
+          // Adiciona blur programaticamente ao clicar nos botões também
+          if (imageContainerRef.current) {
+              imageContainerRef.current.style.transition = 'filter 0.5s ease-in';
+              imageContainerRef.current.style.filter = 'blur(4px)';
+          }
+
           switch (action) {
               case 'like':
                   cardRef.current.style.transition = 'transform 0.5s ease-in';
@@ -191,19 +219,19 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
         // Base content visible on all photos
         const mainInfoContent = (
             <>
-                {matchReason && photoIndex === 0 && ( // Show reason only on first photo
-                    <div className="mb-1 flex items-center gap-1.5 bg-amber-400/20 backdrop-blur-sm text-amber-100 text-xs font-semibold px-2 py-0.5 rounded-full w-fit">
-                        <SparklesIcon className="w-3 h-3 text-amber-300" />
-                        <span>{matchReason}</span>
-                    </div>
-                )}
                 <h2 className="text-3xl font-bold text-white flex items-center">
                     {profile.name}, <span className="font-light">{profile.age}</span>
                     {profile.isVerified && <VerifiedBadgeIcon className="w-6 h-6 ml-2 text-white" />}
                 </h2>
-                <p className="text-md text-white/90">
+                <p className="text-md text-white/90 mb-1">
                     {distance !== null && t('distanceAway', { distance })}
                 </p>
+                {matchReason && photoIndex === 0 && ( // Show reason only on first photo
+                    <div className="flex items-center gap-1.5 bg-amber-400/20 backdrop-blur-sm text-amber-100 text-xs font-semibold px-2 py-0.5 rounded-full w-fit">
+                        <SparklesIcon className="w-3 h-3 text-amber-300" />
+                        <span>{matchReason}</span>
+                    </div>
+                )}
             </>
         );
 
@@ -285,7 +313,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
 
 
   return (
-    <div className="w-full max-w-sm h-full max-h-[700px] flex flex-col" ref={cardRef}>
+    <div className="w-full max-w-sm h-full max-h-[700px] flex flex-col" ref={cardRef} style={{ willChange: 'transform' }}>
         <div 
           className="relative w-full aspect-[3/4] bg-slate-800 rounded-2xl shadow-xl overflow-hidden touch-none select-none"
           onPointerDown={handlePointerDown}
@@ -295,10 +323,12 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
         >
           {/* Container Principal da Imagem */}
           <div 
+            ref={imageContainerRef}
             className="relative w-full h-full overflow-hidden"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onContextMenu={(e) => e.preventDefault()}
+            style={{ willChange: 'filter' }}
           >
             {/* Sliding image container */}
             <div
@@ -318,32 +348,32 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
 
              {/* Swipe Feedback Overlays */}
             <div 
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none transition-opacity"
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none transition-opacity z-20"
               style={{ 
                 opacity: deltaX > 10 ? Math.min(deltaX / SWIPE_THRESHOLD, 1) : 0,
                 transform: `rotate(-15deg) scale(${1 + Math.min(deltaX / SWIPE_THRESHOLD, 1) * 0.2})` 
               }}
             >
-              <div className="border-4 border-green-400 rounded-full p-4 bg-green-400/20">
+              <div className="border-4 border-green-400 rounded-full p-4 bg-green-400/20 backdrop-blur-sm">
                 <HeartIcon className="w-16 h-16 text-green-400" />
               </div>
             </div>
 
             <div 
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none transition-opacity"
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none transition-opacity z-20"
               style={{ 
                 opacity: deltaX < -10 ? Math.min(Math.abs(deltaX) / SWIPE_THRESHOLD, 1) : 0,
                 transform: `rotate(15deg) scale(${1 + Math.min(Math.abs(deltaX) / SWIPE_THRESHOLD, 1) * 0.2})` 
               }}
             >
-              <div className="border-4 border-red-500 rounded-full p-4 bg-red-500/20">
+              <div className="border-4 border-red-500 rounded-full p-4 bg-red-500/20 backdrop-blur-sm">
                 <XIcon className="w-16 h-16 text-red-500" />
               </div>
             </div>
             
             {/* Click Action Feedback Overlays */}
             <div 
-              className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-300 ease-out ${
+              className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-300 ease-out z-30 ${
                 actionFeedback ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
               }`}
             >
@@ -376,7 +406,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
 
             {/* Overlay com informações dinâmicas */}
             <div
-                className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white transition-opacity duration-150"
+                className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white transition-opacity duration-150 z-10"
                 style={{ opacity: overlayOpacity }}
             >
                 {renderOverlayContent()}
@@ -386,8 +416,8 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
             {/* Áreas de clique para trocar de foto (para mobile) */}
             {validPhotos.length > 1 && !isDetailsVisible && (
               <>
-                <div className="absolute top-0 left-0 h-full w-1/2" onClick={prevPhoto}></div>
-                <div className="absolute top-0 right-0 h-full w-1/2" onClick={nextPhoto}></div>
+                <div className="absolute top-0 left-0 h-full w-1/2 z-10" onClick={prevPhoto}></div>
+                <div className="absolute top-0 right-0 h-full w-1/2 z-10" onClick={nextPhoto}></div>
               </>
             )}
 

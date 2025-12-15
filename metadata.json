@@ -2,6 +2,7 @@
   "name": "PURPOSE MATCH",
   "description": "PURPOSE MATCH é um aplicativo de namoro PWA moderno focado em conectar solteiros com base em valores, fé e objetivos de vida compartilhados. Descubra conexões significativas em uma comunidade que entende sua jornada.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "microphone"
   ]
 }

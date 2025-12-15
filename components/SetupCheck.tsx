@@ -36,6 +36,13 @@ export const SetupCheck: React.FC<SetupCheckProps> = ({ children }) => {
           }
         }),
 
+        // 3.1 Check for MEDIA columns in 'messages' table
+        supabase.from('messages').select('media_url, media_type, is_view_once, viewed_at').limit(1).then(({ error }) => {
+            if (error && (error.code === '42703' || error.message.includes("column") || error.message.includes("does not exist"))) {
+                errors.push('As colunas de mídia (media_url, media_type) não existem na tabela "messages". Execute o script de atualização.');
+            }
+        }),
+
         // 4. Check for 'support_tickets' table
         supabase.from('support_tickets').select('id', { count: 'exact', head: true }).then(({ error }) => {
           if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist"))) {
@@ -84,6 +91,13 @@ export const SetupCheck: React.FC<SetupCheckProps> = ({ children }) => {
                 errors.push('O repositório (bucket) "face-verifications" não foi encontrado.');
             }
         }),
+
+        // 11. Check for 'chat-media' bucket
+        supabase.storage.from('chat-media').list('', { limit: 1 }).then(({ error }) => {
+            if (error && error.message.toLowerCase().includes('bucket not found')) {
+                errors.push('O repositório (bucket) "chat-media" não foi encontrado.');
+            }
+        }),
       ];
 
       await Promise.all(checks);
@@ -110,29 +124,26 @@ export const SetupCheck: React.FC<SetupCheckProps> = ({ children }) => {
         <div className="max-w-2xl">
           <h1 className="text-3xl font-bold text-red-700">Erro de Configuração do Supabase</h1>
           <p className="mt-4 text-red-600">
-            Detectamos que seu ambiente Supabase não está completamente configurado. Para resolver todos os problemas de uma só vez, por favor execute o script SQL de configuração.
+            Detectamos problemas na estrutura do seu banco de dados.
           </p>
 
           <div className="mt-6 text-left bg-white p-6 rounded-lg shadow-md border border-red-200">
             <h2 className="text-lg font-bold text-slate-800 mb-3">Problemas Encontrados:</h2>
-            <ul className="list-disc list-inside space-y-2 text-slate-700">
+            <ul className="list-disc list-inside space-y-2 text-slate-700 mb-4">
               {setupErrors.map((err, index) => <li key={index}>{err}</li>)}
             </ul>
             
             <div className="mt-6 border-t pt-4">
-                <h2 className="text-lg font-bold text-slate-800 mb-3">Solução Definitiva:</h2>
+                <h2 className="text-lg font-bold text-slate-800 mb-3">Como Corrigir:</h2>
                  <p className="text-sm text-slate-600 mb-4">
-                   Para corrigir todos esses problemas, você precisa executar um script SQL no seu painel do Supabase. Este script irá criar todas as tabelas, o repositório de fotos e as regras de segurança necessárias.
+                   Encontre o arquivo <code className="bg-slate-200 px-1 rounded text-red-700 font-bold">supabase_media_update.sql</code> na lista de arquivos, copie o conteúdo e execute no <strong>SQL Editor</strong> do seu painel Supabase.
                  </p>
-                 <ol className="list-decimal list-inside space-y-2 text-sm text-slate-600">
-                    <li>Localize o arquivo <code className="bg-slate-200 px-1 rounded text-red-700">supabase_setup.sql</code> na raiz do projeto.</li>
-                    <li>Copie todo o conteúdo do arquivo.</li>
-                    <li>No seu painel Supabase, vá para o <strong className="text-slate-800">SQL Editor</strong>.</li>
-                    <li>Cole o script na janela de query e clique em <strong className="text-slate-800">"RUN"</strong>.</li>
-                 </ol>
+                 <p className="text-sm text-slate-600">
+                    Se for a primeira vez instalando, use o <code className="bg-slate-200 px-1 rounded text-red-700">supabase_setup.sql</code>.
+                 </p>
             </div>
           </div>
-           <p className="mt-6 text-sm text-slate-500">Após executar o script no Supabase, por favor, <strong className="text-slate-700">atualize esta página</strong>.</p>
+           <p className="mt-6 text-sm text-slate-500">Após executar o script no Supabase, <strong className="text-slate-700">atualize esta página</strong>.</p>
         </div>
       </div>
     );

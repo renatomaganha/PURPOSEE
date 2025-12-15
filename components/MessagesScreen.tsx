@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { UserProfile, Message } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
+import { PhotoIcon } from './icons/PhotoIcon';
+import { MicrophoneIcon } from './icons/MicrophoneIcon';
+import { ViewOnceIcon } from './icons/ViewOnceIcon';
 
 
 interface MessagesScreenProps {
@@ -11,7 +14,9 @@ interface MessagesScreenProps {
 }
 
 interface Snippet {
-    text: string;
+    text?: string;
+    media_type?: 'text' | 'image' | 'audio';
+    is_view_once?: boolean;
     created_at: string;
 }
 
@@ -30,6 +35,31 @@ const ConversationItem: React.FC<{ conversation: UserProfile; onSelectChat: (use
         return date.toLocaleDateString('pt-BR');
     };
 
+    const getPreviewText = (msg: Snippet) => {
+        if (msg.media_type === 'image') {
+            if (msg.is_view_once) {
+                return (
+                    <span className="flex items-center gap-1 italic text-slate-600">
+                        <ViewOnceIcon className="w-4 h-4" /> Foto (1x)
+                    </span>
+                );
+            }
+            return (
+                <span className="flex items-center gap-1">
+                    <PhotoIcon className="w-4 h-4" /> Imagem
+                </span>
+            );
+        }
+        if (msg.media_type === 'audio') {
+            return (
+                <span className="flex items-center gap-1">
+                    <MicrophoneIcon className="w-4 h-4" /> Áudio
+                </span>
+            );
+        }
+        return msg.text;
+    };
+
     return (
         <div
             onClick={() => onSelectChat(conversation)}
@@ -41,9 +71,9 @@ const ConversationItem: React.FC<{ conversation: UserProfile; onSelectChat: (use
                     <h3 className="font-bold text-slate-800 text-lg">{conversation.name}</h3>
                     {lastMessage && <span className="text-xs text-slate-400">{formatTimestamp(lastMessage.created_at)}</span>}
                 </div>
-                <p className="text-sm text-slate-500 truncate">
-                  {lastMessage ? lastMessage.text : "Toque para iniciar a conversa."}
-                </p>
+                <div className="text-sm text-slate-500 truncate h-5">
+                  {lastMessage ? getPreviewText(lastMessage) : "Toque para iniciar a conversa."}
+                </div>
             </div>
         </div>
     );
@@ -62,7 +92,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ conversations, o
             const promises = conversations.map(conv =>
                 supabase
                     .from('messages')
-                    .select('text, created_at')
+                    .select('text, media_type, is_view_once, created_at')
                     .or(`(sender_id.eq.${currentUserProfile.id},receiver_id.eq.${conv.id}),(sender_id.eq.${conv.id},receiver_id.eq.${currentUserProfile.id})`)
                     .order('created_at', { ascending: false })
                     .limit(1)
@@ -94,7 +124,12 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ conversations, o
                 const partnerId = newMessage.sender_id === currentUserProfile.id ? newMessage.receiver_id : newMessage.sender_id;
                 setLastMessages(prev => ({
                     ...prev,
-                    [partnerId]: { text: newMessage.text, created_at: newMessage.created_at }
+                    [partnerId]: { 
+                        text: newMessage.text, 
+                        media_type: newMessage.media_type,
+                        is_view_once: newMessage.is_view_once,
+                        created_at: newMessage.created_at 
+                    }
                 }));
             }
         ).subscribe();

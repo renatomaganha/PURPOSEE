@@ -324,6 +324,11 @@ function App() {
       }
   }, [currentUserProfile, addToast]);
 
+  const handlePurchaseSuccess = useCallback(() => {
+      updateCurrentUserProfile({ isPremium: true });
+      closeModal();
+  }, [updateCurrentUserProfile, closeModal]);
+
   // Effect to handle Stripe checkout return
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -992,7 +997,7 @@ function App() {
 
     switch (modalView) {
       case 'sales':
-        return <SalesPage onClose={closeModal} />;
+        return <SalesPage onClose={closeModal} onPurchaseSuccess={handlePurchaseSuccess} />;
       case 'filters':
         if(!currentUserProfile) return null;
         return <FilterScreen onClose={closeModal} onApply={(f) => { setFilters(f); closeModal(); }} onGoToSales={onGoToSales} currentFilters={filters} isPremiumUser={currentUserProfile.isPremium} denominations={denominations} />;

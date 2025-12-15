@@ -128,7 +128,11 @@ export interface Message {
   id: number;
   sender_id: string;
   receiver_id: string;
-  text: string;
+  text?: string;
+  media_url?: string;
+  media_type?: 'text' | 'image' | 'audio';
+  is_view_once?: boolean;
+  viewed_at?: string | null;
   created_at: string;
 }
 
