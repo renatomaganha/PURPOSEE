@@ -499,40 +499,48 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({ profile, currentUserPr
 
         {/* --- BARRA DE AÇÃO PERMANENTE --- */}
         <div className="flex-shrink-0 bg-transparent py-2 flex justify-center items-center gap-x-4">
-            <button
-                onClick={() => handleActionClick('rewind')}
-                className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center text-amber-500 border-2 border-slate-200 hover:scale-110 transition-transform"
-                aria-label={t('rewind')}
-            >
-                <RewindIcon className="w-7 h-7"/>
-            </button>
-            <button
-                onClick={() => handleActionClick('pass')}
-                className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center text-red-500 border-2 border-slate-200 hover:scale-110 transition-transform"
-                aria-label={t('pass')}
-            >
-                <XIcon className="w-8 h-8"/>
-            </button>
-            <button
-                onClick={() => handleActionClick('like')}
-                className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center text-green-500 border-2 border-slate-200 hover:scale-110 transition-transform"
-                aria-label={t('like')}
-            >
-                <HeartIcon className="w-10 h-10"/>
-            </button>
-            <div className="relative">
+            <Tooltip text={t('rewind')}>
                 <button
-                    onClick={() => handleActionClick('superlike')}
-                    className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center text-sky-500 border-2 border-slate-200 hover:scale-110 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:text-slate-400"
-                    aria-label={t('superLike')}
+                    onClick={() => handleActionClick('rewind')}
+                    className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center text-amber-500 border-2 border-slate-200 hover:scale-110 transition-transform"
+                    aria-label={t('rewind')}
                 >
-                    <HeartSparkleIcon className="w-8 h-8"/>
-                    {currentUserProfile.isPremium && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-sky-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white">
-                            {currentUserProfile.superLikesRemaining ?? 0}
-                        </span>
-                    )}
+                    <RewindIcon className="w-7 h-7"/>
                 </button>
+            </Tooltip>
+            <Tooltip text={t('pass')}>
+                <button
+                    onClick={() => handleActionClick('pass')}
+                    className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center text-red-500 border-2 border-slate-200 hover:scale-110 transition-transform"
+                    aria-label={t('pass')}
+                >
+                    <XIcon className="w-8 h-8"/>
+                </button>
+            </Tooltip>
+            <Tooltip text={t('like')}>
+                <button
+                    onClick={() => handleActionClick('like')}
+                    className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center text-green-500 border-2 border-slate-200 hover:scale-110 transition-transform"
+                    aria-label={t('like')}
+                >
+                    <HeartIcon className="w-10 h-10"/>
+                </button>
+            </Tooltip>
+            <div className="relative">
+                <Tooltip text={t('superLike')}>
+                    <button
+                        onClick={() => handleActionClick('superlike')}
+                        className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center text-sky-500 border-2 border-slate-200 hover:scale-110 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:text-slate-400"
+                        aria-label={t('superLike')}
+                    >
+                        <HeartSparkleIcon className="w-8 h-8"/>
+                        {currentUserProfile.isPremium && (
+                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-sky-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white">
+                                {currentUserProfile.superLikesRemaining ?? 0}
+                            </span>
+                        )}
+                    </button>
+                </Tooltip>
                  {!currentUserProfile.isPremium && (
                     <div className="absolute -right-2 -top-2">
                         <Tooltip text={t('superLikeTooltip')}>

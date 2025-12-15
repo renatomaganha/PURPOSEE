@@ -15,6 +15,7 @@ import { TrashIcon } from './icons/TrashIcon';
 import { ViewOnceIcon } from './icons/ViewOnceIcon';
 import { XIcon } from './icons/XIcon';
 import { LockClosedIcon } from './icons/LockClosedIcon'; // Reusing existing lock icon for opened state
+import { Tooltip } from './Tooltip';
 
 interface ChatScreenProps {
   match: UserProfile;
@@ -643,9 +644,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ match, currentUserProfil
             {isRecording ? (
                 // Recording UI
                 <div className="flex-grow bg-white rounded-2xl border border-red-200 shadow-sm flex items-center min-h-[44px] px-2 animate-pulse">
-                    <button onClick={cancelRecording} className="p-2 text-slate-400 hover:text-red-500">
-                        <TrashIcon className="w-6 h-6" />
-                    </button>
+                    <Tooltip text="Cancelar gravação">
+                        <button onClick={cancelRecording} className="p-2 text-slate-400 hover:text-red-500">
+                            <TrashIcon className="w-6 h-6" />
+                        </button>
+                    </Tooltip>
                     <div className="flex-grow text-center font-mono text-red-500 font-bold">
                         {formatRecordingTime(recordingTime)}
                     </div>
@@ -654,9 +657,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ match, currentUserProfil
             ) : (
                 // Text Input UI
                 <>
-                    <button onClick={handleClipClick} className="p-3 mb-1 text-slate-500 hover:bg-slate-200 rounded-full transition-colors">
-                        <PaperClipIcon className="w-6 h-6" />
-                    </button>
+                    <Tooltip text="Anexar mídia">
+                        <button onClick={handleClipClick} className="p-3 mb-1 text-slate-500 hover:bg-slate-200 rounded-full transition-colors">
+                            <PaperClipIcon className="w-6 h-6" />
+                        </button>
+                    </Tooltip>
                     <form onSubmit={handleSendMessage} className="flex-grow flex items-end">
                         <div className="flex-grow bg-white rounded-2xl border border-slate-200 focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500 transition-all shadow-sm flex items-center min-h-[44px]">
                             <input
@@ -676,28 +681,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ match, currentUserProfil
             )}
           
             {newMessage.trim() || isRecording || pendingFile ? (
-                <button 
-                    onClick={isRecording ? stopRecording : () => handleSendMessage()}
-                    disabled={isUploading}
-                    className={`
-                        w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-all duration-200 mb-0.5
-                        ${isRecording ? 'bg-green-500 hover:bg-green-600' : 'bg-sky-600 hover:bg-sky-700'} 
-                        text-white transform hover:scale-105
-                    `}
-                >
-                    {isUploading ? (
-                        <div className="w-5 h-5 border-2 border-t-white border-white/30 rounded-full animate-spin"></div>
-                    ) : (
-                        <PaperAirplaneIcon className="w-6 h-6 translate-x-[-1px] translate-y-[1px]" />
-                    )}
-                </button>
+                <Tooltip text="Enviar">
+                    <button 
+                        onClick={isRecording ? stopRecording : () => handleSendMessage()}
+                        disabled={isUploading}
+                        className={`
+                            w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-all duration-200 mb-0.5
+                            ${isRecording ? 'bg-green-500 hover:bg-green-600' : 'bg-sky-600 hover:bg-sky-700'} 
+                            text-white transform hover:scale-105
+                        `}
+                    >
+                        {isUploading ? (
+                            <div className="w-5 h-5 border-2 border-t-white border-white/30 rounded-full animate-spin"></div>
+                        ) : (
+                            <PaperAirplaneIcon className="w-6 h-6 translate-x-[-1px] translate-y-[1px]" />
+                        )}
+                    </button>
+                </Tooltip>
             ) : (
-                <button 
-                    onClick={startRecording}
-                    className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-all duration-200 bg-sky-600 hover:bg-sky-700 text-white transform hover:scale-105 mb-0.5"
-                >
-                    <MicrophoneIcon className="w-6 h-6" />
-                </button>
+                <Tooltip text="Gravar áudio">
+                    <button 
+                        onClick={startRecording}
+                        className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-all duration-200 bg-sky-600 hover:bg-sky-700 text-white transform hover:scale-105 mb-0.5"
+                    >
+                        <MicrophoneIcon className="w-6 h-6" />
+                    </button>
+                </Tooltip>
             )}
         </div>
       </footer>

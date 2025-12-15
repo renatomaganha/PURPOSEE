@@ -55,7 +55,9 @@ const NavItem: React.FC<{
             </Tooltip>
         </div>
     )}
-    {icon}
+    <Tooltip text={label}>
+        {icon}
+    </Tooltip>
     <span className="text-xs mt-1">{label}</span>
   </button>
 );
