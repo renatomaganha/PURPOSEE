@@ -38,9 +38,12 @@ import { useToast } from './contexts/ToastContext';
 import { SalesPage } from './components/SalesPage';
 import { UnmatchModal, UnmatchMode } from './components/UnmatchModal';
 
+// Importando o AdminApp para ser renderizado como uma view interna
+import AdminApp from './admin/AdminApp';
+
 
 type AppStatus = 'landing' | 'auth' | 'create_profile' | 'loading' | 'app' | 'profile_error';
-type AppView = 'profiles' | 'matches' | 'messages' | 'premium';
+type AppView = 'profiles' | 'matches' | 'messages' | 'premium' | 'admin';
 type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile' | 'sales' | 'unmatch';
 
 const BOOST_DURATION = 3600; // 60 minutes in seconds
@@ -356,9 +359,13 @@ function App() {
           if (data) {
             const userProfile = dbProfileToAppProfile(data);
             userProfile.email = session.user.email;
-            if (session.user.email === '19reiss@gmail.com') {
+            
+            // Verificação robusta de administrador para ativar Premium automático
+            const adminEmail = 'renat0maganhaaa@gmail.com';
+            if (session.user.email?.toLowerCase().trim() === adminEmail.toLowerCase().trim()) {
                 userProfile.isPremium = true;
             }
+
             setCurrentUserProfile(userProfile);
             setAppStatus('app');
 
@@ -774,6 +781,7 @@ function App() {
         if (!currentUserProfile) return <LoadingScreen logoUrl={logoUrl} />;
         
         const mainContent = () => {
+          if (activeView === 'admin') return <AdminApp />;
           if (activeChat) return <ChatScreen match={activeChat} currentUserProfile={currentUserProfile} onBack={() => setActiveChat(null)} />;
           switch (activeView) {
             case 'profiles':
@@ -831,11 +839,11 @@ function App() {
            <SetupCheck>
               <div className="w-screen h-dvh flex flex-col bg-slate-100">
                   <main className="flex-grow overflow-y-auto">
-                      <div className={`relative w-full max-w-sm mx-auto ${activeView === 'profiles' ? 'h-full flex flex-col items-center justify-center' : ''}`}>
+                      <div className={`relative w-full ${activeView === 'admin' ? 'max-w-none h-full' : 'max-w-sm mx-auto'} ${activeView === 'profiles' ? 'h-full flex flex-col items-center justify-center' : ''}`}>
                           {mainContent()}
                       </div>
                   </main>
-                  {!activeChat && (
+                  {(!activeChat && activeView !== 'admin') && (
                       <BottomNav
                         activeView={activeView}
                         onNavigate={(view) => { setActiveView(view); setActiveChat(null); }}
@@ -864,7 +872,7 @@ function App() {
     switch (modalView) {
       case 'sales': return <SalesPage onClose={closeModal} onPurchaseSuccess={handlePurchaseSuccess} />;
       case 'filters': if(!currentUserProfile) return null; return <FilterScreen onClose={closeModal} onApply={(f) => { setFilters(f); closeModal(); }} onGoToSales={onGoToSales} currentFilters={filters} isPremiumUser={currentUserProfile.isPremium} denominations={denominations} />;
-      case 'settings': if(!currentUserProfile) return null; return <SettingsScreen currentUserProfile={currentUserProfile} onClose={closeModal} onEditProfile={() => openModal('edit_profile')} onSignOut={handleSignOut} onToggleInvisibleMode={handleToggleInvisibleMode} onTogglePauseAccount={handleTogglePauseAccount} onDeleteAccountRequest={() => openModal('delete')} onShowPrivacyPolicy={() => openModal('privacy')} onShowTermsOfUse={() => openModal('terms')} onShowCookiePolicy={() => openModal('cookies')} onShowCommunityRules={() => openModal('community')} onShowSafetyTips={() => openModal('safety')} onShowHelpAndSupport={() => openModal('support')} onVerifyProfileRequest={() => openModal('face_verification_prompt')} onGoToSales={onGoToSales} />;
+      case 'settings': if(!currentUserProfile) return null; return <SettingsScreen currentUserProfile={currentUserProfile} onClose={closeModal} onEditProfile={() => openModal('edit_profile')} onSignOut={handleSignOut} onToggleInvisibleMode={handleToggleInvisibleMode} onTogglePauseAccount={handleTogglePauseAccount} onDeleteAccountRequest={() => openModal('delete')} onShowPrivacyPolicy={() => openModal('privacy')} onShowTermsOfUse={() => openModal('terms')} onShowCookiePolicy={() => openModal('cookies')} onShowCommunityRules={() => openModal('community')} onShowSafetyTips={() => openModal('safety')} onShowHelpAndSupport={() => openModal('support')} onVerifyProfileRequest={() => openModal('face_verification_prompt')} onGoToSales={onGoToSales} onGoToAdmin={() => { setActiveView('admin'); closeModal(); }} />;
       case 'edit_profile': if (!currentUserProfile) return null; return <CreateProfile onProfileCreated={handleProfileCreated} isEditing={true} onClose={closeModal} denominations={denominations} keyValues={keyValues} interests={interests} languages={languages} />;
       case 'block': if (!userToBlockOrReport) return null; return <BlockUserModal profile={userToBlockOrReport} onClose={closeModal} onConfirm={() => { addToast({type: 'info', message: `Bloqueado ${userToBlockOrReport.name}`}); closeModal(); handlePass(); }} />;
       case 'report': if (!userToBlockOrReport || !currentUserProfile) return null; return <ReportUserModal profile={userToBlockOrReport} onClose={closeModal} onSubmit={async (reason: ReportReason, details: string, files: File[]) => { const uploadedUrls: string[] = []; for (const file of files) { const fileName = `${currentUserProfile.id}/report_evidence/${Date.now()}_${file.name}`; const { error: uploadError } = await supabase.storage.from('report-evidence').upload(fileName, file); if (uploadError) { addToast({ type: 'error', message: "Falha ao enviar uma das evidências. A denúncia não foi enviada."}); return false; } const { data } = supabase.storage.from('report-evidence').getPublicUrl(fileName); if (data.publicUrl) uploadedUrls.push(data.publicUrl); } const { error: reportError } = await supabase.from('reports').insert({ reporter_id: currentUserProfile.id, reported_id: userToBlockOrReport.id, reason, details, status: 'Pendente', evidence_urls: uploadedUrls.length > 0 ? uploadedUrls : null, }); if (reportError) { addToast({ type: 'error', message: "Falha ao enviar denúncia. Tente novamente."}); return false; } handlePass(); return true; }} />;

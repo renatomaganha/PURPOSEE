@@ -11,6 +11,7 @@ import { DynamicLogo } from '../../components/DynamicLogo';
 import { ArrowRightOnRectangleIcon } from '../icons/ArrowRightOnRectangleIcon';
 import { TagIcon } from '../icons/TagIcon';
 import { FaceIdIcon } from '../icons/FaceIdIcon';
+import { ArrowLeftIcon } from '../../components/icons/ArrowLeftIcon';
 
 interface SidebarProps {
   logoUrl: string | null;
@@ -49,6 +50,13 @@ const NavItem: React.FC<{
 
 
 export const Sidebar: React.FC<SidebarProps> = ({ logoUrl, activeView, onNavigate, pendingReportsCount, pendingTicketsCount, pendingVerificationsCount, onSignOut }) => {
+    
+    const handleGoBackToApp = () => {
+        // Como o AdminApp está integrado na App.tsx, recarregar a página ou mudar o estado de navegação resolve.
+        // Para uma transição suave, recarregamos a página para o estado inicial 'profiles'.
+        window.location.href = '/';
+    };
+
     return (
         <aside className="w-64 bg-slate-800 text-white flex flex-col flex-shrink-0">
             <div className="flex items-center justify-center h-20 border-b border-slate-700">
@@ -114,7 +122,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ logoUrl, activeView, onNavigat
                     onClick={() => onNavigate('tags')}
                 />
             </nav>
-            <div className="p-4 border-t border-slate-700">
+            <div className="p-4 border-t border-slate-700 space-y-2">
+                <button
+                    onClick={handleGoBackToApp}
+                    className="w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg text-sky-400 hover:bg-slate-700 hover:text-sky-300"
+                >
+                    <ArrowLeftIcon className="w-5 h-5" />
+                    <span className="ml-3">Voltar para o App</span>
+                </button>
                  <button
                     onClick={onSignOut}
                     className="w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white"

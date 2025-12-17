@@ -35,6 +35,7 @@ interface SettingsScreenProps {
     onShowHelpAndSupport: () => void;
     onVerifyProfileRequest: () => void;
     onGoToSales: () => void;
+    onGoToAdmin?: () => void;
 }
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
@@ -103,6 +104,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     onShowHelpAndSupport,
     onVerifyProfileRequest,
     onGoToSales,
+    onGoToAdmin,
 }) => {
     const [notificationStatus, setNotificationStatus] = useState<NotificationPermission | 'loading'>('loading');
     const [isSubscribed, setIsSubscribed] = useState(false);
@@ -178,7 +180,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     const faceVerificationStatus = currentUserProfile?.face_verification_status || VerificationStatus.NOT_VERIFIED;
     const canVerify = faceVerificationStatus === VerificationStatus.NOT_VERIFIED || faceVerificationStatus === VerificationStatus.REJECTED;
 
-    const isAdmin = currentUserProfile?.email === 'renat0maganhaaa@gmail.com';
+    // Verificação de administrador robusta
+    const adminEmail = 'renat0maganhaaa@gmail.com';
+    const isAdmin = currentUserProfile?.email?.toLowerCase().trim() === adminEmail.toLowerCase().trim();
 
     return (
         <>
@@ -289,13 +293,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
                     {isAdmin && (
                         <Section title="Administração">
-                            <a href="/admin/">
-                                <SettingItem 
-                                    icon={<ShieldCheckIcon className="w-6 h-6" />} 
-                                    title="Painel do Administrador" 
-                                    subtitle="Acessar o painel de gerenciamento" 
-                                />
-                            </a>
+                            <SettingItem 
+                                icon={<ShieldCheckIcon className="w-6 h-6" />} 
+                                title="Painel do Administrador" 
+                                subtitle="Gerencie usuários, denúncias e tags" 
+                                onClick={onGoToAdmin}
+                            />
                         </Section>
                     )}
                     
