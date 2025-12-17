@@ -69,6 +69,14 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Verificação de segurança extra
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            alert("Sua sessão expirou. Por favor, faça login novamente no Admin.");
+            return;
+        }
+
         if (!campaignName || !message || (campaignType === CampaignType.POPUP && !selectedFile)) {
             alert('Por favor, preencha todos os campos obrigatórios.');
             return;
@@ -80,17 +88,16 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
         try {
             // 1. Upload da imagem se for POPUP
             if (campaignType === CampaignType.POPUP && selectedFile) {
-                const fileName = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
+                const fileName = `pub_${Date.now()}_${selectedFile.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                
+                console.log("Admin: Iniciando upload para marketing-assets...", fileName);
                 
                 const { data: uploadData, error: uploadError } = await supabase.storage
                     .from('marketing-assets')
                     .upload(fileName, selectedFile);
                 
                 if (uploadError) {
-                    if (uploadError.message.includes("Bucket not found")) {
-                        throw new Error("O Bucket 'marketing-assets' não foi encontrado. Certifique-se de que ele é PÚBLICO.");
-                    }
-                    throw uploadError;
+                    throw new Error(`Erro no Storage: ${uploadError.message}. Verifique se o bucket 'marketing-assets' existe e é PÚBLICO.`);
                 }
                 
                 const { data: publicUrl } = supabase.storage
@@ -98,27 +105,37 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                     .getPublicUrl(fileName);
                 
                 imageUrl = publicUrl.publicUrl;
+                console.log("Admin: Imagem enviada com sucesso:", imageUrl);
             }
 
             // 2. Inserção no banco
+            console.log("Admin: Tentando salvar campanha no banco...");
+            
+            const payload = {
+                name: campaignName,
+                type: campaignType,
+                target,
+                message,
+                image_url: imageUrl || null,
+                reach: 0,
+                ctr: 0
+            };
+
             const { data: newCampaign, error: insertError } = await supabase
                 .from('campaigns')
-                .insert({
-                    name: campaignName,
-                    type: campaignType,
-                    target,
-                    message,
-                    image_url: imageUrl,
-                    created_at: new Date().toISOString(),
-                    reach: 0,
-                    ctr: 0
-                })
+                .insert(payload)
                 .select()
                 .single();
 
-            if (insertError) throw insertError;
+            if (insertError) {
+                console.error("Erro RLS Detalhado:", insertError);
+                if (insertError.message.includes("violates row-level security policy")) {
+                    throw new Error("Permissão Negada (RLS). Execute o novo SQL master no painel do Supabase para corrigir.");
+                }
+                throw insertError;
+            }
 
-            alert('Campanha publicada com sucesso!');
+            alert('Campanha enviada com sucesso!');
             setCampaigns([newCampaign, ...campaigns]);
             
             // Reset form
@@ -130,8 +147,8 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
             setSelectedFile(null);
 
         } catch (error: any) {
-            console.error("Erro ao enviar campanha:", error);
-            alert(`Erro ao enviar campanha: ${error.message}`);
+            console.error("Erro ao processar campanha:", error);
+            alert(error.message);
         } finally {
             setIsSubmitting(false);
         }
@@ -150,7 +167,7 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                 <div className="lg:col-span-2">
                      <div className="bg-white p-6 rounded-lg shadow-md sticky top-8">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold text-slate-800">Criar Nova Campanha</h2>
+                            <h2 className="text-xl font-bold text-slate-800">Nova Campanha</h2>
                             {imagePreview && campaignType === CampaignType.POPUP && (
                                 <button 
                                     onClick={() => setIsPreviewOpen(true)}
@@ -162,12 +179,12 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label htmlFor="campaignName" className="block text-sm font-medium text-slate-700">Nome da Campanha</label>
-                                <input type="text" id="campaignName" value={campaignName} onChange={e => setCampaignName(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Ex: Promoção de Verão"/>
+                                <label htmlFor="campaignName" className="block text-sm font-medium text-slate-700">Título Interno</label>
+                                <input type="text" id="campaignName" value={campaignName} onChange={e => setCampaignName(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Ex: Oferta Black Friday"/>
                             </div>
                             
                              <div>
-                                <label className="block text-sm font-medium text-slate-700">Tipo de Campanha</label>
+                                <label className="block text-sm font-medium text-slate-700">Formato</label>
                                 <div className="mt-2 flex gap-4">
                                     <label className="flex items-center cursor-pointer">
                                         <input type="radio" value={CampaignType.TEXT} checked={campaignType === CampaignType.TEXT} onChange={() => setCampaignType(CampaignType.TEXT)} className="form-radio text-sky-600"/>
@@ -175,14 +192,14 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                                     </label>
                                      <label className="flex items-center cursor-pointer">
                                         <input type="radio" value={CampaignType.POPUP} checked={campaignType === CampaignType.POPUP} onChange={() => setCampaignType(CampaignType.POPUP)} className="form-radio text-sky-600"/>
-                                        <span className="ml-2 text-sm">Pop-up com Imagem</span>
+                                        <span className="ml-2 text-sm">Modal com Imagem</span>
                                     </label>
                                 </div>
                             </div>
 
                             {campaignType === CampaignType.POPUP && (
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700">Imagem do Banner</label>
+                                    <label className="block text-sm font-medium text-slate-700">Banner da Oferta</label>
                                     <div className="mt-1 flex items-center justify-center w-full">
                                         <label className="flex flex-col w-full h-32 border-2 border-dashed border-slate-300 hover:border-sky-500 rounded-lg cursor-pointer transition-colors overflow-hidden">
                                             {imagePreview ? (
@@ -190,7 +207,7 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                                             ) : (
                                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                                     <PaperClipIcon className="w-8 h-8 text-slate-400 mb-2" />
-                                                    <p className="text-sm text-slate-500">Adicionar Imagem</p>
+                                                    <p className="text-sm text-slate-500">Selecionar Imagem</p>
                                                 </div>
                                             )}
                                             <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
@@ -200,17 +217,17 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                             )}
 
                             <div>
-                                <label htmlFor="message" className="block text-sm font-medium text-slate-700">Mensagem</label>
-                                <textarea id="message" rows={3} value={message} onChange={e => setMessage(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Ex: Não perca! 50% de desconto no Premium apenas hoje."></textarea>
+                                <label htmlFor="message" className="block text-sm font-medium text-slate-700">Texto da Mensagem</label>
+                                <textarea id="message" rows={3} value={message} onChange={e => setMessage(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="O que o usuário verá..."></textarea>
                             </div>
                             
                             <div>
-                                <label htmlFor="target" className="block text-sm font-medium text-slate-700">Público-Alvo</label>
+                                <label htmlFor="target" className="block text-sm font-medium text-slate-700">Enviar Para</label>
                                 <select id="target" value={target} onChange={e => setTarget(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none">
                                     <option value="all">Todos os Usuários</option>
-                                    <option value="premium">Apenas Premium</option>
-                                    <option value="free">Apenas Plano Básico</option>
-                                    <option value="non_verified">Apenas Não Verificados</option>
+                                    <option value="premium">Apenas Usuários Premium</option>
+                                    <option value="free">Apenas Usuários Free</option>
+                                    <option value="non_verified">Usuários Não Verificados</option>
                                 </select>
                             </div>
                             
@@ -228,21 +245,21 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                 {/* Histórico */}
                 <div className="lg:col-span-3">
                     <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Atalhos Administrativos</h2>
+                        <h2 className="text-xl font-bold text-slate-800 mb-4">Controles Rápidos</h2>
                          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                             <div>
-                                <h3 className="font-bold text-slate-800">Forçar Exibição de Vendas</h3>
-                                <p className="text-sm text-slate-500">Ativa o botão Premium na tela inicial do app.</p>
+                                <h3 className="font-bold text-slate-800">Forçar Botão Premium</h3>
+                                <p className="text-sm text-slate-500">Ativa a oferta Premium na Home do app.</p>
                             </div>
                             <Toggle checked={isPremiumSaleActive} onChange={onPremiumSaleToggle} />
                         </div>
                     </div>
 
                     <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Campanhas Recentes</h2>
+                        <h2 className="text-xl font-bold text-slate-800 mb-4">Campanhas Ativas</h2>
                          <input 
                             type="text"
-                            placeholder="Pesquisar por nome..."
+                            placeholder="Filtrar por nome..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full mb-4 p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none"
@@ -251,9 +268,9 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                             <table className="w-full text-sm text-left text-slate-500">
                                 <thead className="text-xs text-slate-700 uppercase bg-slate-50 font-bold">
                                     <tr>
-                                        <th className="px-4 py-3">Campanha</th>
+                                        <th className="px-4 py-3">Nome</th>
                                         <th className="px-4 py-3">Público</th>
-                                        <th className="px-4 py-3">Tipo</th>
+                                        <th className="px-4 py-3">Formato</th>
                                         <th className="px-4 py-3 text-right">Data</th>
                                     </tr>
                                 </thead>
@@ -269,7 +286,7 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                                 </tbody>
                             </table>
                              {filteredCampaigns.length === 0 && (
-                                <p className="text-center p-8 text-slate-400 text-sm">Nenhuma campanha encontrada.</p>
+                                <p className="text-center p-8 text-slate-400 text-sm">Nenhuma campanha registrada.</p>
                              )}
                         </div>
                     </div>
