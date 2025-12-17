@@ -289,7 +289,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
                     {isAdmin && (
                         <Section title="Administração">
-                            <a href="/admin/index.html" target="_blank" rel="noopener noreferrer">
+                            <a href="/admin/">
                                 <SettingItem 
                                     icon={<ShieldCheckIcon className="w-6 h-6" />} 
                                     title="Painel do Administrador" 
