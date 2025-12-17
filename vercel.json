@@ -9,8 +9,23 @@
       "destination": "/admin/index.html"
     },
     {
-      "source": "/:path((?!admin/|api/|.*\\.).*)",
+      "source": "/admin/",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/:path((?!admin|api|.*\\.).*)",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).(jpg|jpeg|png|gif|webp|svg|ico)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ]
 }
