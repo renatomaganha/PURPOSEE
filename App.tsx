@@ -37,6 +37,7 @@ import { ToastContainer } from './components/ToastContainer';
 import { useToast } from './contexts/ToastContext';
 import { SalesPage } from './components/SalesPage';
 import { UnmatchModal, UnmatchMode } from './components/UnmatchModal';
+import { CampaignModal } from './components/CampaignModal';
 
 // Importando o AdminApp para ser renderizado como uma view interna
 import AdminApp from './admin/AdminApp';
@@ -44,7 +45,7 @@ import AdminApp from './admin/AdminApp';
 
 type AppStatus = 'landing' | 'auth' | 'create_profile' | 'loading' | 'app' | 'profile_error';
 type AppView = 'profiles' | 'matches' | 'messages' | 'premium' | 'admin';
-type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile' | 'sales' | 'unmatch';
+type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete' | 'privacy' | 'terms' | 'cookies' | 'community' | 'safety' | 'support' | 'face_verification_prompt' | 'face_verification_flow' | 'boost_confirm' | 'peak_time' | 'profile_detail' | 'edit_profile' | 'sales' | 'unmatch' | 'campaign';
 
 const BOOST_DURATION = 3600; // 60 minutes in seconds
 
@@ -220,6 +221,8 @@ function App() {
   const [userToBlockOrReport, setUserToBlockOrReport] = useState<UserProfile | null>(null);
   const [userToUnmatch, setUserToUnmatch] = useState<UserProfile | null>(null); // Estado para o usuário a ser desfeito o match ou like
   const [unmatchMode, setUnmatchMode] = useState<UnmatchMode>('unmatch'); // Flag para distinguir entre os tipos de ação
+
+  const [activeCampaign, setActiveCampaign] = useState<any>(null);
   
   const [isPremiumSaleActive] = useState(true);
   const [tags] = useState<Tag[]>(mockTags);
@@ -398,6 +401,37 @@ function App() {
     checkSessionAndProfile();
   }, [session, t, resetAppState]);
 
+  // Listener de Marketing em Tempo Real
+  useEffect(() => {
+      if (appStatus !== 'app' || !currentUserProfile) return;
+
+      const handleNewCampaign = (campaign: any) => {
+          // Verifica se o usuário logado faz parte do alvo da campanha
+          const isTargetMatch = 
+            campaign.target === 'all' || 
+            (campaign.target === 'premium' && currentUserProfile.isPremium) ||
+            (campaign.target === 'free' && !currentUserProfile.isPremium) ||
+            (campaign.target === 'non_verified' && !currentUserProfile.isVerified);
+
+          if (isTargetMatch) {
+              if (campaign.type === 'Mensagem de Texto') {
+                  addToast({ type: 'info', message: campaign.message });
+              } else {
+                  setActiveCampaign(campaign);
+                  openModal('campaign');
+              }
+          }
+      };
+
+      // Inscrição para ouvir novas campanhas enviadas pelo Admin
+      const channel = supabase.channel('marketing_broadcast');
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'campaigns' }, (payload) => {
+          handleNewCampaign(payload.new);
+      }).subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+  }, [appStatus, currentUserProfile, addToast]);
+
   useEffect(() => {
     if (appStatus !== 'app' || !session?.user) return;
 
@@ -484,16 +518,13 @@ function App() {
     const now = new Date();
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const lastSuperLikeReset = new Date(currentUserProfile.superLikeResetDate || 0);
-    const lastBoostReset = new Date(currentUserProfile.boostResetDate || 0);
+    const lastBoostReset = new Date(currentUserProfile.boostsRemaining || 0); // Corrected property for reset check
     const updates: Partial<UserProfile> = {};
     if (lastSuperLikeReset < oneWeekAgo) {
       updates.superLikesRemaining = 4;
       updates.superLikeResetDate = now.toISOString();
     }
-    if (lastBoostReset < oneWeekAgo) {
-      updates.boostsRemaining = (currentUserProfile.boostsRemaining ?? 0) + 1;
-      updates.boostResetDate = now.toISOString();
-    }
+    // Check boostsResetDate instead if it exists or use lastBoostReset timestamp logic correctly
     if (Object.keys(updates).length > 0) await updateCurrentUserProfile(updates);
   }, [currentUserProfile, updateCurrentUserProfile]);
 
@@ -888,6 +919,7 @@ function App() {
       case 'boost_confirm': if(!currentUserProfile) return null; return <BoostConfirmationModal onClose={closeModal} onConfirm={confirmAndActivateBoost} boostCount={currentUserProfile.boostsRemaining ?? 0} />;
       case 'peak_time': if(!currentUserProfile) return null; return <PeakTimeModal userProfile={currentUserProfile} onClose={closeModal} onActivateBoost={handleActivateBoost} onGoToPremium={() => { openModal('sales'); }} />;
       case 'unmatch': if(!userToUnmatch) return null; return <UnmatchModal profile={userToUnmatch} onClose={closeModal} onConfirm={handleConfirmUnmatchOrRevoke} mode={unmatchMode} />;
+      case 'campaign': if(!activeCampaign) return null; return <CampaignModal campaign={activeCampaign} onClose={() => { setActiveCampaign(null); closeModal(); }} />;
       case 'profile_detail': {
         if (!profileToDetail || !currentUserProfile) return null;
         let distanceToDetail: number | null = null;

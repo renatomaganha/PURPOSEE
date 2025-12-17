@@ -79,6 +79,8 @@ export interface Campaign {
     ctr: number; // Click-through rate as percentage
     imageUrl?: string;
     message: string;
+    // FIX: Added created_at property to match database usage and fix TS error in MarketingTools.tsx
+    created_at?: string;
 }
 
 export enum AffiliateStatus {
