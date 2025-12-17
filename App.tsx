@@ -919,7 +919,7 @@ function App() {
       case 'boost_confirm': if(!currentUserProfile) return null; return <BoostConfirmationModal onClose={closeModal} onConfirm={confirmAndActivateBoost} boostCount={currentUserProfile.boostsRemaining ?? 0} />;
       case 'peak_time': if(!currentUserProfile) return null; return <PeakTimeModal userProfile={currentUserProfile} onClose={closeModal} onActivateBoost={handleActivateBoost} onGoToPremium={() => { openModal('sales'); }} />;
       case 'unmatch': if(!userToUnmatch) return null; return <UnmatchModal profile={userToUnmatch} onClose={closeModal} onConfirm={handleConfirmUnmatchOrRevoke} mode={unmatchMode} />;
-      case 'campaign': if(!activeCampaign) return null; return <CampaignModal campaign={activeCampaign} onClose={() => { setActiveCampaign(null); closeModal(); }} />;
+      case 'campaign': if(!activeCampaign) return null; return <CampaignModal campaign={activeCampaign} onClose={() => { setActiveCampaign(null); closeModal(); }} onAction={() => { setActiveCampaign(null); closeModal(); onGoToSales(); }} />;
       case 'profile_detail': {
         if (!profileToDetail || !currentUserProfile) return null;
         let distanceToDetail: number | null = null;

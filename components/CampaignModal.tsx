@@ -10,9 +10,18 @@ interface CampaignModalProps {
         type: string;
     };
     onClose: () => void;
+    onAction?: () => void;
 }
 
-export const CampaignModal: React.FC<CampaignModalProps> = ({ campaign, onClose }) => {
+export const CampaignModal: React.FC<CampaignModalProps> = ({ campaign, onClose, onAction }) => {
+    const handleMainAction = () => {
+        if (onAction) {
+            onAction();
+        } else {
+            onClose();
+        }
+    };
+
     return (
         <div 
             className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[70] p-4"
@@ -47,7 +56,7 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({ campaign, onClose 
                             <h2 className="text-2xl font-bold mb-2 leading-tight">{campaign.name}</h2>
                             <p className="text-sm opacity-90 leading-relaxed mb-4">{campaign.message}</p>
                             <button 
-                                onClick={onClose}
+                                onClick={handleMainAction}
                                 className="w-full bg-white text-slate-900 hover:bg-slate-100 font-bold py-3.5 rounded-2xl transition-all shadow-xl active:scale-95"
                             >
                                 Aproveitar Oferta
