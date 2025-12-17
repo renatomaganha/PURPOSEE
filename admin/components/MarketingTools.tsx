@@ -3,6 +3,7 @@ import { Campaign, CampaignType } from '../types';
 import { PaperClipIcon } from '../icons/PaperClipIcon';
 import { InformationCircleIcon } from '../icons/InformationCircleIcon';
 import { supabase } from '../../lib/supabaseClient';
+import { CampaignModal } from '../../components/CampaignModal';
 
 interface MarketingToolsProps {
     isPremiumSaleActive: boolean;
@@ -29,17 +30,27 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         const fetchCampaigns = async () => {
-            const { data } = await supabase
-                .from('campaigns')
-                .select('*')
-                .order('created_at', { ascending: false });
-            if (data) setCampaigns(data);
+            try {
+                const { data, error } = await supabase
+                    .from('campaigns')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    console.warn("Marketing: Erro ao buscar campanhas:", error.message);
+                    return;
+                }
+                if (data) setCampaigns(data);
+            } catch (err) {
+                console.error("Marketing: Erro inesperado:", err);
+            }
         };
         fetchCampaigns();
     }, []);
@@ -69,12 +80,18 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
         try {
             // 1. Upload da imagem se for POPUP
             if (campaignType === CampaignType.POPUP && selectedFile) {
-                const fileName = `campaigns/${Date.now()}_${selectedFile.name}`;
+                const fileName = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
+                
                 const { data: uploadData, error: uploadError } = await supabase.storage
                     .from('marketing-assets')
                     .upload(fileName, selectedFile);
                 
-                if (uploadError) throw uploadError;
+                if (uploadError) {
+                    if (uploadError.message.includes("Bucket not found")) {
+                        throw new Error("O Bucket 'marketing-assets' não foi encontrado. Certifique-se de que ele é PÚBLICO.");
+                    }
+                    throw uploadError;
+                }
                 
                 const { data: publicUrl } = supabase.storage
                     .from('marketing-assets')
@@ -101,8 +118,7 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
 
             if (insertError) throw insertError;
 
-            // Sucesso!
-            alert('Campanha enviada com sucesso para o banco de dados!');
+            alert('Campanha publicada com sucesso!');
             setCampaigns([newCampaign, ...campaigns]);
             
             // Reset form
@@ -133,21 +149,31 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                 {/* Criador de Campanha */}
                 <div className="lg:col-span-2">
                      <div className="bg-white p-6 rounded-lg shadow-md sticky top-8">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Criar Nova Campanha</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold text-slate-800">Criar Nova Campanha</h2>
+                            {imagePreview && campaignType === CampaignType.POPUP && (
+                                <button 
+                                    onClick={() => setIsPreviewOpen(true)}
+                                    className="text-xs font-bold text-sky-600 hover:underline"
+                                >
+                                    Ver Prévia
+                                </button>
+                            )}
+                        </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label htmlFor="campaignName" className="block text-sm font-medium text-slate-700">Nome da Campanha</label>
-                                <input type="text" id="campaignName" value={campaignName} onChange={e => setCampaignName(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md" placeholder="Ex: Promoção de Verão"/>
+                                <input type="text" id="campaignName" value={campaignName} onChange={e => setCampaignName(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Ex: Promoção de Verão"/>
                             </div>
                             
                              <div>
                                 <label className="block text-sm font-medium text-slate-700">Tipo de Campanha</label>
                                 <div className="mt-2 flex gap-4">
-                                    <label className="flex items-center">
+                                    <label className="flex items-center cursor-pointer">
                                         <input type="radio" value={CampaignType.TEXT} checked={campaignType === CampaignType.TEXT} onChange={() => setCampaignType(CampaignType.TEXT)} className="form-radio text-sky-600"/>
                                         <span className="ml-2 text-sm">Apenas Texto</span>
                                     </label>
-                                     <label className="flex items-center">
+                                     <label className="flex items-center cursor-pointer">
                                         <input type="radio" value={CampaignType.POPUP} checked={campaignType === CampaignType.POPUP} onChange={() => setCampaignType(CampaignType.POPUP)} className="form-radio text-sky-600"/>
                                         <span className="ml-2 text-sm">Pop-up com Imagem</span>
                                     </label>
@@ -158,9 +184,9 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700">Imagem do Banner</label>
                                     <div className="mt-1 flex items-center justify-center w-full">
-                                        <label className="flex flex-col w-full h-32 border-2 border-dashed border-slate-300 hover:border-sky-500 rounded-lg cursor-pointer">
+                                        <label className="flex flex-col w-full h-32 border-2 border-dashed border-slate-300 hover:border-sky-500 rounded-lg cursor-pointer transition-colors overflow-hidden">
                                             {imagePreview ? (
-                                                <img src={imagePreview} alt="Preview" className="w-full h-full object-contain rounded-lg"/>
+                                                <img src={imagePreview} alt="Preview" className="w-full h-full object-contain p-2"/>
                                             ) : (
                                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                                     <PaperClipIcon className="w-8 h-8 text-slate-400 mb-2" />
@@ -175,12 +201,12 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
 
                             <div>
                                 <label htmlFor="message" className="block text-sm font-medium text-slate-700">Mensagem</label>
-                                <textarea id="message" rows={3} value={message} onChange={e => setMessage(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md" placeholder="Ex: Não perca! 50% de desconto no Premium apenas hoje."></textarea>
+                                <textarea id="message" rows={3} value={message} onChange={e => setMessage(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Ex: Não perca! 50% de desconto no Premium apenas hoje."></textarea>
                             </div>
                             
                             <div>
                                 <label htmlFor="target" className="block text-sm font-medium text-slate-700">Público-Alvo</label>
-                                <select id="target" value={target} onChange={e => setTarget(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md">
+                                <select id="target" value={target} onChange={e => setTarget(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none">
                                     <option value="all">Todos os Usuários</option>
                                     <option value="premium">Apenas Premium</option>
                                     <option value="free">Apenas Plano Básico</option>
@@ -191,9 +217,9 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                             <button 
                                 type="submit" 
                                 disabled={isSubmitting}
-                                className="w-full bg-sky-600 text-white font-bold py-3 px-4 rounded-md hover:bg-sky-700 transition-colors disabled:bg-sky-300"
+                                className="w-full bg-sky-600 text-white font-bold py-3 px-4 rounded-md hover:bg-sky-700 transition-colors disabled:bg-sky-300 shadow-md"
                             >
-                                {isSubmitting ? 'Enviando...' : 'Publicar Agora'}
+                                {isSubmitting ? 'Publicando...' : 'Publicar Agora'}
                             </button>
                         </form>
                     </div>
@@ -216,37 +242,52 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                         <h2 className="text-xl font-bold text-slate-800 mb-4">Campanhas Recentes</h2>
                          <input 
                             type="text"
-                            placeholder="Pesquisar..."
+                            placeholder="Pesquisar por nome..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full mb-4 p-2 border border-slate-300 rounded-md"
+                            className="w-full mb-4 p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none"
                         />
                          <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left text-slate-500">
-                                <thead className="text-xs text-slate-700 uppercase bg-slate-50">
+                                <thead className="text-xs text-slate-700 uppercase bg-slate-50 font-bold">
                                     <tr>
                                         <th className="px-4 py-3">Campanha</th>
                                         <th className="px-4 py-3">Público</th>
                                         <th className="px-4 py-3">Tipo</th>
-                                        <th className="px-4 py-3">Criado em</th>
+                                        <th className="px-4 py-3 text-right">Data</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filteredCampaigns.map(c => (
                                         <tr key={c.id} className="bg-white border-b hover:bg-slate-50 text-xs">
                                             <td className="px-4 py-4 font-bold text-slate-900">{c.name}</td>
-                                            <td className="px-4 py-4 uppercase font-semibold">{c.target}</td>
+                                            <td className="px-4 py-4 uppercase font-semibold text-[10px]">{c.target}</td>
                                             <td className="px-4 py-4">{c.type}</td>
-                                            <td className="px-4 py-4">{new Date(c.created_at || "").toLocaleDateString('pt-BR')}</td>
+                                            <td className="px-4 py-4 text-right">{new Date(c.created_at || "").toLocaleDateString('pt-BR')}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
+                             {filteredCampaigns.length === 0 && (
+                                <p className="text-center p-8 text-slate-400 text-sm">Nenhuma campanha encontrada.</p>
+                             )}
                         </div>
                     </div>
                 </div>
-
             </div>
+
+            {/* Modal de Prévia Local */}
+            {isPreviewOpen && (
+                <CampaignModal 
+                    campaign={{ 
+                        name: campaignName, 
+                        message: message, 
+                        image_url: imagePreview || undefined, 
+                        type: campaignType 
+                    }} 
+                    onClose={() => setIsPreviewOpen(false)} 
+                />
+            )}
         </div>
     );
 };

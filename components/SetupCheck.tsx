@@ -17,7 +17,7 @@ export const SetupCheck: React.FC<SetupCheckProps> = ({ children }) => {
       const checks = [
         // 1. Check for 'user_profiles' table
         supabase.from('user_profiles').select('id', { count: 'exact', head: true }).then(({ error }) => {
-          if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist"))) {
+          if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist") || error.message.includes("schema cache"))) {
             errors.push('A tabela "user_profiles" não foi encontrada.');
           }
         }),
@@ -31,42 +31,42 @@ export const SetupCheck: React.FC<SetupCheckProps> = ({ children }) => {
       
         // 3. Check for 'messages' table
         supabase.from('messages').select('id', { count: 'exact', head: true }).then(({ error }) => {
-          if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist"))) {
+          if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist") || error.message.includes("schema cache"))) {
             errors.push('A tabela "messages" não foi encontrada.');
           }
         }),
 
-        // 4. Check for 'campaigns' table (NEW)
+        // 4. Check for 'campaigns' table
         supabase.from('campaigns').select('id', { count: 'exact', head: true }).then(({ error }) => {
-            if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist"))) {
-                errors.push('A tabela "campaigns" para ferramentas de marketing não foi encontrada.');
+            if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist") || error.message.includes("schema cache"))) {
+                errors.push('A tabela "campaigns" (Marketing) não foi encontrada ou o cache do banco precisa ser atualizado.');
             }
         }),
 
-        // 5. Check for 'marketing-assets' bucket (NEW)
+        // 5. Check for 'marketing-assets' bucket
         supabase.storage.from('marketing-assets').list('', { limit: 1 }).then(({ error }) => {
             if (error && error.message.toLowerCase().includes('bucket not found')) {
-                errors.push('O repositório (bucket) "marketing-assets" não foi encontrado.');
+                errors.push('O repositório (bucket) "marketing-assets" (Marketing) não foi encontrado.');
             }
         }),
 
         // 6. Check for 'support_tickets' table
         supabase.from('support_tickets').select('id', { count: 'exact', head: true }).then(({ error }) => {
-          if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist"))) {
+          if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist") || error.message.includes("schema cache"))) {
               errors.push('A tabela "support_tickets" não foi encontrada.');
           }
         }),
         
         // 7. Check for 'reports' table
         supabase.from('reports').select('id', { count: 'exact', head: true }).then(({ error }) => {
-          if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist"))) {
+          if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist") || error.message.includes("schema cache"))) {
               errors.push('A tabela "reports" não foi encontrada.');
           }
         }),
 
         // 8. Check for 'face_verifications' table
         supabase.from('face_verifications').select('id', { count: 'exact', head: true }).then(({ error }) => {
-            if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist"))) {
+            if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist") || error.message.includes("schema cache"))) {
                 errors.push('A tabela "face_verifications" não foi encontrada.');
             }
         }),
@@ -85,7 +85,7 @@ export const SetupCheck: React.FC<SetupCheckProps> = ({ children }) => {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-100 text-center p-4">
         <div className="w-8 h-8 border-4 border-t-sky-500 border-slate-200 rounded-full animate-spin"></div>
-        <p className="mt-4 text-slate-600 font-semibold">Verificando configuração...</p>
+        <p className="mt-4 text-slate-600 font-semibold">Verificando estrutura de dados...</p>
       </div>
     );
   }
@@ -94,16 +94,24 @@ export const SetupCheck: React.FC<SetupCheckProps> = ({ children }) => {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-red-50 text-center p-6">
         <div className="max-w-2xl">
-          <h1 className="text-3xl font-bold text-red-700">Erro de Estrutura Supabase</h1>
+          <h1 className="text-3xl font-bold text-red-700">Configuração Pendente</h1>
           <div className="mt-6 text-left bg-white p-6 rounded-lg shadow-md border border-red-200">
-            <ul className="list-disc list-inside space-y-2 text-slate-700 mb-4">
+            <p className="font-bold text-slate-800 mb-2">Para habilitar as novas ferramentas (Marketing, Suporte, Verificação), execute os comandos SQL no Supabase:</p>
+            <ul className="list-disc list-inside space-y-2 text-slate-700 mb-4 text-sm">
               {setupErrors.map((err, index) => <li key={index}>{err}</li>)}
             </ul>
-            <p className="text-sm text-slate-600 border-t pt-4">
-              Certifique-se de criar a tabela <strong>campaigns</strong> e o bucket <strong>marketing-assets</strong> como público no Supabase.
-            </p>
+            <div className="text-sm text-slate-600 border-t pt-4 space-y-1">
+              <p>1. Crie a tabela <strong>campaigns</strong> e o bucket <strong>marketing-assets</strong> (Público).</p>
+              <p>2. Crie a tabela <strong>support_tickets</strong>.</p>
+              <p>3. Crie a tabela <strong>face_verifications</strong> e o bucket <strong>face-verifications</strong> (Público).</p>
+            </div>
           </div>
-           <p className="mt-6 text-sm text-slate-500">Após configurar, atualize esta página.</p>
+           <button 
+             onClick={() => window.location.reload()}
+             className="mt-6 bg-sky-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-sky-700 transition-all"
+           >
+             Já configurei, atualizar agora
+           </button>
         </div>
       </div>
     );

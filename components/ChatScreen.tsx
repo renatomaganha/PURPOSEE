@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { UserProfile, Message } from '../types';
@@ -412,8 +413,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ match, currentUserProfil
             t('geminiPromptInstructionFormat')
         ].join('\n');
         
+        // FIX: Updated model to gemini-3-flash-preview as per GenAI guidelines for basic text tasks
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
         });
 
@@ -692,7 +694,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ match, currentUserProfil
                         `}
                     >
                         {isUploading ? (
-                            <div className="w-5 h-5 border-2 border-t-white border-white/30 rounded-full animate-spin"></div>
+                            <div className="w-5 h-5 border-2 border-t-white border-white/30 rounded-full animate-spin mr-2"></div>
                         ) : (
                             <PaperAirplaneIcon className="w-6 h-6 translate-x-[-1px] translate-y-[1px]" />
                         )}
