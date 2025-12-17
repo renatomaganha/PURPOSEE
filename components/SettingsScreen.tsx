@@ -1,4 +1,3 @@
-// FIX: Re-created the SettingsScreen component to resolve module and parsing errors.
 import React, { useState, useEffect } from 'react';
 import { UserProfile, VerificationStatus } from '../types';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
@@ -290,7 +289,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
                     {isAdmin && (
                         <Section title="Administração">
-                            <a href="/admin" target="_blank" rel="noopener noreferrer">
+                            <a href="/admin/index.html" target="_blank" rel="noopener noreferrer">
                                 <SettingItem 
                                     icon={<ShieldCheckIcon className="w-6 h-6" />} 
                                     title="Painel do Administrador" 
