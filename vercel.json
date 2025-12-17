@@ -1,14 +1,19 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": true,
-  "rewrites": [
+  "routes": [
     {
-      "source": "/admin/:path*",
-      "destination": "/admin/index.html"
+      "src": "/admin/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|tsx|ts))$",
+      "dest": "/admin/$1"
     },
     {
-      "source": "/((?!admin|api|sw\\.js|manifest\\.json|icon-.*|.*\\..*).*)",
-      "destination": "/index.html"
+      "src": "/admin(/.*)?",
+      "dest": "/admin/index.html"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/((?!admin|api|sw\\.js|manifest\\.json|icon-.*|.*\\..*).*)",
+      "dest": "/index.html"
     }
   ]
 }
