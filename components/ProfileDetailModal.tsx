@@ -7,6 +7,7 @@ import { XIcon } from './icons/XIcon';
 import { UserMinusIcon } from './icons/UserMinusIcon';
 import { FlagIcon } from './icons/FlagIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
+import { ChatBubbleIcon } from './icons/ChatBubbleIcon';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface ProfileDetailModalProps {
@@ -16,8 +17,11 @@ interface ProfileDetailModalProps {
   onRemoveMatch: () => void;
   onBlock: () => void;
   onReport: () => void;
+  onUnmatch?: () => void;
+  onChat?: () => void;
   distance: number | null;
   matchReason?: string;
+  isMutualMatch?: boolean;
 }
 
 // Subcomponente reutilizado do ProfileCard
@@ -27,7 +31,19 @@ const InfoPill: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </span>
 );
 
-export const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ profile, onClose, onConfirmMatch, onRemoveMatch, onBlock, onReport, distance, matchReason }) => {
+export const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ 
+    profile, 
+    onClose, 
+    onConfirmMatch, 
+    onRemoveMatch, 
+    onBlock, 
+    onReport, 
+    onUnmatch,
+    onChat,
+    distance, 
+    matchReason,
+    isMutualMatch = false
+}) => {
   const [photoIndex, setPhotoIndex] = useState(0);
   const { t } = useLanguage();
 
@@ -42,28 +58,28 @@ export const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ profile,
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-30 flex items-end">
+    <div className="fixed inset-0 bg-black/60 z-[60] flex items-end">
       <div className="bg-white w-full h-[90vh] max-h-[700px] rounded-t-2xl flex flex-col animate-slide-up">
         <div className="flex-shrink-0 relative w-full h-1/2">
             <img
-                src={profile.photos[photoIndex]}
+                src={profile.photos[photoIndex] || ''}
                 alt={profile.name}
                 className="w-full h-full object-cover rounded-t-2xl"
             />
              {/* Navegação de Fotos (barras no topo) */}
             <div className="absolute top-2 left-2 right-2 flex space-x-1">
-                {profile.photos.map((_, index) => (
+                {profile.photos.filter(p => !!p).map((_, index) => (
                     <div key={index} className={`h-1 flex-1 rounded-full ${index === photoIndex ? 'bg-white' : 'bg-white/50'}`}></div>
                 ))}
             </div>
              {/* Áreas de clique para trocar de foto */}
-            {profile.photos.length > 1 && (
+            {profile.photos.filter(p => !!p).length > 1 && (
             <>
                 <div className="absolute top-0 left-0 h-full w-1/2" onClick={prevPhoto}></div>
                 <div className="absolute top-0 right-0 h-full w-1/2" onClick={nextPhoto}></div>
             </>
             )}
-            <button onClick={onClose} className="absolute top-4 right-4 text-white bg-black/30 rounded-full p-1.5">
+            <button onClick={onClose} className="absolute top-4 right-4 text-white bg-black/30 rounded-full p-1.5 z-10">
                 <ChevronDownIcon className="w-6 h-6" />
             </button>
         </div>
@@ -118,11 +134,16 @@ export const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ profile,
             </div>
             </div>
             
-            <div className="pt-6 mt-4 text-center flex justify-center gap-6">
-                 <button className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-red-600" onClick={onBlock}>
+            <div className="pt-6 mt-4 text-center flex flex-wrap justify-center gap-4">
+                 {isMutualMatch && (
+                     <button className="flex items-center gap-2 text-sm font-semibold text-red-500 hover:bg-red-50 px-3 py-2 rounded-lg" onClick={onUnmatch}>
+                        <XIcon className="w-4 h-4" /> Desfazer Match
+                     </button>
+                 )}
+                 <button className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-red-600 px-3 py-2 rounded-lg" onClick={onBlock}>
                      <UserMinusIcon className="w-4 h-4" /> Bloquear {profile.name}
                  </button>
-                 <button className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-amber-600" onClick={onReport}>
+                 <button className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-amber-600 px-3 py-2 rounded-lg" onClick={onReport}>
                      <FlagIcon className="w-4 h-4" /> Denunciar
                  </button>
              </div>
@@ -130,20 +151,32 @@ export const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({ profile,
 
          {/* Barra de Ação Fixa */}
         <div className="bg-white p-4 border-t border-slate-200 flex justify-center items-center gap-x-4 sticky bottom-0 flex-shrink-0">
-            <button
-                onClick={onRemoveMatch}
-                className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center text-red-500 border-2 border-slate-200 hover:scale-110 transition-transform"
-                aria-label="Recusar"
-            >
-                <XIcon className="w-8 h-8"/>
-            </button>
-            <button
-                onClick={onConfirmMatch}
-                className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center text-green-500 border-2 border-slate-200 hover:scale-110 transition-transform"
-                aria-label="Curtir de volta"
-            >
-                <HeartIcon className="w-10 h-10"/>
-            </button>
+            {isMutualMatch ? (
+                <button
+                    onClick={onChat}
+                    className="w-full bg-sky-600 text-white font-bold py-3.5 rounded-2xl shadow-lg hover:bg-sky-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                    <ChatBubbleIcon className="w-5 h-5" />
+                    Enviar Mensagem
+                </button>
+            ) : (
+                <>
+                    <button
+                        onClick={onRemoveMatch}
+                        className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center text-red-500 border-2 border-slate-200 hover:scale-110 transition-transform"
+                        aria-label="Recusar"
+                    >
+                        <XIcon className="w-8 h-8"/>
+                    </button>
+                    <button
+                        onClick={onConfirmMatch}
+                        className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center text-green-500 border-2 border-slate-200 hover:scale-110 transition-transform"
+                        aria-label="Curtir de volta"
+                    >
+                        <HeartIcon className="w-10 h-10"/>
+                    </button>
+                </>
+            )}
         </div>
 
       </div>

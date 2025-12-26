@@ -78,8 +78,10 @@ export interface Campaign {
     reach: number;
     ctr: number; // Click-through rate as percentage
     imageUrl?: string;
+    image_url?: string; // Mantendo compatibilidade com camelCase/snake_case do DB
     message: string;
-    // FIX: Added created_at property to match database usage and fix TS error in MarketingTools.tsx
+    external_link?: string;
+    button_label?: string;
     created_at?: string;
 }
 
@@ -178,6 +180,7 @@ export interface Tag {
   id: string;
   category: TagCategory;
   name: string;
+  emoji?: string;
   created_at: string;
 }
 

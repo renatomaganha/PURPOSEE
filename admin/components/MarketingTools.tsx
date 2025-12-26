@@ -26,6 +26,8 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
     const [campaignName, setCampaignName] = useState('');
     const [message, setMessage] = useState('');
     const [target, setTarget] = useState('all');
+    const [externalLink, setExternalLink] = useState('');
+    const [buttonLabel, setButtonLabel] = useState('');
     const [campaignType, setCampaignType] = useState<CampaignType>(CampaignType.TEXT);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -87,7 +89,6 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
         try {
             // 1. Upload da imagem se for POPUP
             if (campaignType === CampaignType.POPUP && selectedFile) {
-                // Sanitiza o nome do arquivo: apenas letras, números e underline
                 const fileExt = selectedFile.name.split('.').pop();
                 const fileName = `banner_${Date.now()}.${fileExt}`;
                 
@@ -100,7 +101,7 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                 
                 if (uploadError) {
                     console.error("Erro Storage Detalhado:", uploadError);
-                    throw new Error(`Erro ao enviar imagem: ${uploadError.message}. Certifique-se de executar o SQL de permissão do Storage.`);
+                    throw new Error(`Erro ao enviar imagem: ${uploadError.message}`);
                 }
                 
                 const { data: publicUrl } = supabase.storage
@@ -117,6 +118,8 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                 target,
                 message,
                 image_url: imageUrl || null,
+                external_link: externalLink || null,
+                button_label: buttonLabel || null,
                 reach: 0,
                 ctr: 0
             };
@@ -135,9 +138,12 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
             alert('Campanha publicada com sucesso!');
             setCampaigns([newCampaign, ...campaigns]);
             
+            // Limpar form
             setCampaignName('');
             setMessage('');
             setTarget('all');
+            setExternalLink('');
+            setButtonLabel('');
             setCampaignType(CampaignType.TEXT);
             setImagePreview(null);
             setSelectedFile(null);
@@ -175,7 +181,7 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label htmlFor="campaignName" className="block text-sm font-medium text-slate-700">Título</label>
-                                <input type="text" id="campaignName" value={campaignName} onChange={e => setCampaignName(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" />
+                                <input type="text" id="campaignName" value={campaignName} onChange={e => setCampaignName(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Ex: Promoção de Inverno" />
                             </div>
                             
                              <div>
@@ -187,14 +193,14 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                                     </label>
                                      <label className="flex items-center cursor-pointer">
                                         <input type="radio" value={CampaignType.POPUP} checked={campaignType === CampaignType.POPUP} onChange={() => setCampaignType(CampaignType.POPUP)} className="form-radio text-sky-600"/>
-                                        <span className="ml-2 text-sm">Modal + Imagem</span>
+                                        <span className="ml-2 text-sm">Card/Perfil + Foto</span>
                                     </label>
                                 </div>
                             </div>
 
                             {campaignType === CampaignType.POPUP && (
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700">Banner</label>
+                                    <label className="block text-sm font-medium text-slate-700">Banner / Foto do "Perfil"</label>
                                     <div className="mt-1 flex items-center justify-center w-full">
                                         <label className="flex flex-col w-full h-32 border-2 border-dashed border-slate-300 hover:border-sky-500 rounded-lg cursor-pointer transition-colors overflow-hidden">
                                             {imagePreview ? (
@@ -212,18 +218,29 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                             )}
 
                             <div>
-                                <label htmlFor="message" className="block text-sm font-medium text-slate-700">Mensagem</label>
-                                <textarea id="message" rows={3} value={message} onChange={e => setMessage(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none"></textarea>
+                                <label htmlFor="message" className="block text-sm font-medium text-slate-700">Mensagem (Bio do Anúncio)</label>
+                                <textarea id="message" rows={3} value={message} onChange={e => setMessage(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="O que aparecerá no card..."></textarea>
                             </div>
-                            
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="buttonLabel" className="block text-sm font-medium text-slate-700">Texto do Botão</label>
+                                    <input type="text" id="buttonLabel" value={buttonLabel} onChange={e => setButtonLabel(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="Ex: Saiba Mais" />
+                                </div>
+                                <div>
+                                    <label htmlFor="target" className="block text-sm font-medium text-slate-700">Público</label>
+                                    <select id="target" value={target} onChange={e => setTarget(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none">
+                                        <option value="all">Todos</option>
+                                        <option value="premium">Premium</option>
+                                        <option value="free">Free</option>
+                                        <option value="non_verified">Não Verificados</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <div>
-                                <label htmlFor="target" className="block text-sm font-medium text-slate-700">Destinatários</label>
-                                <select id="target" value={target} onChange={e => setTarget(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none">
-                                    <option value="all">Todos</option>
-                                    <option value="premium">Premium</option>
-                                    <option value="free">Free</option>
-                                    <option value="non_verified">Não Verificados</option>
-                                </select>
+                                <label htmlFor="externalLink" className="block text-sm font-medium text-slate-700">Link Externo (URL)</label>
+                                <input type="url" id="externalLink" value={externalLink} onChange={e => setExternalLink(e.target.value)} className="mt-1 block w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none" placeholder="https://seu-site.com" />
                             </div>
                             
                             <button 
@@ -231,7 +248,7 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                                 disabled={isSubmitting}
                                 className="w-full bg-sky-600 text-white font-bold py-3 px-4 rounded-md hover:bg-sky-700 transition-colors disabled:bg-sky-300 shadow-md"
                             >
-                                {isSubmitting ? 'Enviando...' : 'Publicar'}
+                                {isSubmitting ? 'Enviando...' : 'Publicar Campanha'}
                             </button>
                         </form>
                     </div>
@@ -239,21 +256,21 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
 
                 <div className="lg:col-span-3">
                     <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Controle</h2>
+                        <h2 className="text-xl font-bold text-slate-800 mb-4">Controle Rápido</h2>
                          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                             <div>
-                                <h3 className="font-bold text-slate-800">Forçar Botão Premium</h3>
-                                <p className="text-sm text-slate-500">Ativa a promoção na Home.</p>
+                                <h3 className="font-bold text-slate-800">Forçar Promoção Premium</h3>
+                                <p className="text-sm text-slate-500">Ativa o banner de oferta na tela de exploração.</p>
                             </div>
                             <Toggle checked={isPremiumSaleActive} onChange={onPremiumSaleToggle} />
                         </div>
                     </div>
 
                     <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">Histórico</h2>
+                        <h2 className="text-xl font-bold text-slate-800 mb-4">Campanhas Ativas</h2>
                          <input 
                             type="text"
-                            placeholder="Buscar..."
+                            placeholder="Buscar campanhas..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full mb-4 p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-sky-500 outline-none"
@@ -262,8 +279,8 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                             <table className="w-full text-sm text-left text-slate-500">
                                 <thead className="text-xs text-slate-700 uppercase bg-slate-50 font-bold">
                                     <tr>
-                                        <th className="px-4 py-3">Campanha</th>
-                                        <th className="px-4 py-3">Público</th>
+                                        <th className="px-4 py-3">Nome</th>
+                                        <th className="px-4 py-3">Alvo</th>
                                         <th className="px-4 py-3">Tipo</th>
                                         <th className="px-4 py-3 text-right">Data</th>
                                     </tr>
@@ -290,7 +307,9 @@ export const MarketingTools: React.FC<MarketingToolsProps> = ({ isPremiumSaleAct
                         name: campaignName, 
                         message: message, 
                         image_url: imagePreview || undefined, 
-                        type: campaignType 
+                        type: campaignType,
+                        external_link: externalLink,
+                        button_label: buttonLabel
                     }} 
                     onClose={() => setIsPreviewOpen(false)} 
                 />

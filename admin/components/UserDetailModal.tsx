@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { UserProfile, UserActivity, ActivityType, AdminMessage } from '../types';
 import { XIcon } from '../../components/icons/XIcon';
@@ -18,27 +17,16 @@ interface UserDetailModalProps {
     onClose: () => void;
     onAction: (userId: string, action: 'warn' | 'suspend' | 'reactivate' | 'delete') => void;
     onViewChat: (user1: UserProfile, user2: UserProfile) => void;
+    isLoading?: boolean;
 }
 
 type ModalView = 'profile' | 'activity' | 'conversations';
 
 const InfoPill: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="bg-sky-100 text-sky-800 text-xs font-semibold mr-2 mb-2 px-2.5 py-1 rounded-full">
+  <span className="bg-sky-100 text-sky-800 text-[10px] font-bold uppercase tracking-wide mr-2 mb-2 px-2.5 py-1 rounded-full border border-sky-200">
     {children}
   </span>
 );
-
-const formatActivity = (activity: UserActivity): string => {
-    switch (activity.type) {
-        case ActivityType.LOGIN: return 'Fez login na plataforma.';
-        case ActivityType.LIKE: return `Curtiu o perfil de ${activity.targetUserName || 'um usuário'}.`;
-        case ActivityType.PASS: return `Passou o perfil de ${activity.targetUserName || 'um usuário'}.`;
-        case ActivityType.MATCH: return `Deu match com ${activity.targetUserName || 'um usuário'}.`;
-        case ActivityType.MESSAGE_SENT: return `Enviou uma mensagem para ${activity.targetUserName || 'um usuário'}.`;
-        case ActivityType.PROFILE_UPDATE: return `Atualizou o perfil: ${activity.details || ''}.`;
-        default: return 'Atividade desconhecida.';
-    }
-};
 
 const ActivityIcon: React.FC<{type: ActivityType, className?: string}> = ({ type, className="w-5 h-5" }) => {
     switch(type) {
@@ -52,132 +40,158 @@ const ActivityIcon: React.FC<{type: ActivityType, className?: string}> = ({ type
 }
 
 
-export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, activities, messages, onClose, onAction, onViewChat }) => {
+export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, activities, messages, onClose, onAction, onViewChat, isLoading }) => {
     const [view, setView] = useState<ModalView>('profile');
 
     const conversations = useMemo(() => {
-        const conversationsMap = new Map<string, { partner: UserProfile, lastMessage: AdminMessage }>();
-        const userMessages = messages.filter(m => m.sender_id === user.id || m.receiver_id === user.id);
-
-        for (const message of userMessages) {
+        const conversationsMap = new Map<string, { partnerId: string, lastMessage: AdminMessage }>();
+        
+        messages.forEach(message => {
             const partnerId = message.sender_id === user.id ? message.receiver_id : message.sender_id;
-            
-            // This is a placeholder as we don't have all users' data here.
-            // In a real app, you'd fetch the user profile from a complete list.
-            const partnerProfile: UserProfile = { id: partnerId, name: `Usuário ${partnerId}`, photos: [''], age: 0 } as UserProfile;
+            if (partnerId === 'SYSTEM_ADMIN') return; // Ignora mensagens de sistema
 
             const existing = conversationsMap.get(partnerId);
-            if (!existing || new Date(message.created_at) > new Date(existing.lastMessage.created_at)) {
-                conversationsMap.set(partnerId, { partner: partnerProfile, lastMessage: message });
+            if (!existing || new Date(message.created_at).getTime() > new Date(existing.lastMessage.created_at).getTime()) {
+                conversationsMap.set(partnerId, { partnerId, lastMessage: message });
             }
-        }
+        });
+
         return Array.from(conversationsMap.values());
-    }, [user, messages]);
+    }, [user.id, messages]);
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col text-slate-800 relative" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col text-slate-800 relative animate-pop" onClick={(e) => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 z-20">
                     <XIcon className="w-6 h-6" />
                 </button>
                 
-                <div className="flex items-center p-6 border-b border-slate-200">
-                    <img src={user.photos[0]} alt={user.name} className="w-16 h-16 rounded-full object-cover mr-4" />
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-800 flex items-center">
-                            {user.name}, {user.age}
-                            {user.isVerified && <VerifiedBadgeIcon className="w-6 h-6 ml-2 text-sky-500" />}
-                        </h2>
-                        <p className="text-sm text-slate-500">{user.email}</p>
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center h-64 p-20">
+                        <div className="w-12 h-12 border-4 border-t-sky-500 border-slate-100 rounded-full animate-spin"></div>
+                        <p className="mt-4 text-slate-500 font-bold">Buscando histórico completo...</p>
                     </div>
-                </div>
-
-                <div className="flex border-b border-slate-200">
-                    <button onClick={() => setView('profile')} className={`flex-1 py-3 font-bold text-center flex items-center justify-center gap-2 ${view === 'profile' ? 'text-sky-600 border-b-2 border-sky-600' : 'text-slate-500'}`}>
-                        <UserCircleIcon className="w-5 h-5"/> Perfil
-                    </button>
-                    <button onClick={() => setView('activity')} className={`flex-1 py-3 font-bold text-center flex items-center justify-center gap-2 ${view === 'activity' ? 'text-sky-600 border-b-2 border-sky-600' : 'text-slate-500'}`}>
-                       <ActivityLogIcon className="w-5 h-5" /> Atividades
-                    </button>
-                     <button onClick={() => setView('conversations')} className={`flex-1 py-3 font-bold text-center flex items-center justify-center gap-2 ${view === 'conversations' ? 'text-sky-600 border-b-2 border-sky-600' : 'text-slate-500'}`}>
-                       <ChatBubbleLeftRightIcon className="w-5 h-5" /> Conversas
-                    </button>
-                </div>
-
-                <div className="flex-grow overflow-y-auto p-6">
-                    {view === 'profile' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <h3 className="font-bold text-slate-700 mb-2">Fotos</h3>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {user.photos.map((photo, index) => (
-                                        <img key={index} src={photo} alt={`${user.name} ${index+1}`} className="w-full aspect-square object-cover rounded-lg" />
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                <div><h3 className="font-bold text-slate-700">Bio</h3><p className="text-sm text-slate-600">{user.bio}</p></div>
-                                <div><h3 className="font-bold text-slate-700">Localização</h3><p className="text-sm text-slate-600">{user.location}</p></div>
-                                <div><h3 className="font-bold text-slate-700">Fé</h3>
-                                    <div className="flex flex-wrap mt-1"><InfoPill>{user.denomination}</InfoPill><InfoPill>Igreja: {user.churchFrequency}</InfoPill></div>
-                                </div>
-                                <div><h3 className="font-bold text-slate-700">Valores</h3>
-                                    <div className="flex flex-wrap mt-1">{user.keyValues.map(v => <InfoPill key={v}>{v}</InfoPill>)}</div>
-                                </div>
-                                <div><h3 className="font-bold text-slate-700">Interesses</h3>
-                                    <div className="flex flex-wrap mt-1">{user.interests.map(i => <InfoPill key={i}>{i}</InfoPill>)}</div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {view === 'activity' && (
-                         <div>
-                             <h3 className="font-bold text-slate-700 mb-4">Registro de Atividades Recentes</h3>
-                             {activities.length > 0 ? (
-                                <ul className="space-y-4">
-                                    {activities.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(activity => (
-                                        <li key={activity.id} className="flex items-start gap-3">
-                                            <div className="mt-1 p-2 bg-slate-100 rounded-full text-slate-500"><ActivityIcon type={activity.type} /></div>
-                                            <div>
-                                                <p className="text-sm text-slate-800">{formatActivity(activity)}</p>
-                                                <p className="text-xs text-slate-400">{new Date(activity.timestamp).toLocaleString('pt-BR')}</p>
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                             ) : ( <p className="text-center text-slate-500 py-8">Nenhuma atividade registrada para este usuário.</p> )}
-                        </div>
-                    )}
-                    {view === 'conversations' && (
-                         <div>
-                            <h3 className="font-bold text-slate-700 mb-4">Conversas</h3>
-                            {conversations.length > 0 ? (
-                                <div className="divide-y divide-slate-200 border border-slate-200 rounded-lg">
-                                    {conversations.map(({ partner, lastMessage }) => (
-                                        <div key={partner.id} className="p-3 flex items-center justify-between">
-                                            <div>
-                                                <p className="font-semibold text-slate-800">{partner.name}</p>
-                                                <p className="text-xs text-slate-500 truncate max-w-xs">{lastMessage.text}</p>
-                                            </div>
-                                            <button onClick={() => onViewChat(user, partner)} className="bg-sky-100 text-sky-700 font-bold text-xs py-1 px-3 rounded-full hover:bg-sky-200">Ver Conversa</button>
-                                        </div>
-                                    ))}
-                                </div>
+                ) : (
+                    <>
+                        <div className="flex items-center p-6 border-b border-slate-200 bg-slate-50 rounded-t-2xl">
+                            {user.photos[0] ? (
+                                <img src={user.photos[0]} alt={user.name} className="w-20 h-20 rounded-full object-cover mr-6 border-4 border-white shadow-sm" />
                             ) : (
-                                <p className="text-center text-slate-500 py-8">Nenhuma conversa encontrada para este usuário.</p>
+                                <div className="w-20 h-20 bg-slate-200 rounded-full mr-6 flex items-center justify-center border-4 border-white shadow-sm">
+                                    <UserCircleIcon className="w-10 h-10 text-slate-400" />
+                                </div>
+                            )}
+                            <div>
+                                <h2 className="text-2xl font-bold text-slate-800 flex items-center">
+                                    {user.name}, {user.age}
+                                    {user.isVerified && <VerifiedBadgeIcon className="w-6 h-6 ml-2 text-sky-500" />}
+                                </h2>
+                                <p className="text-sm text-slate-500 font-medium">{user.email || 'E-mail não informado'}</p>
+                                <div className="flex gap-2 mt-2">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {user.status === 'active' ? 'Ativo' : 'Suspenso'}
+                                    </span>
+                                    {user.isPremium && <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase border border-amber-200">Premium</span>}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex border-b border-slate-200">
+                            <button onClick={() => setView('profile')} className={`flex-1 py-4 font-bold text-center flex items-center justify-center gap-2 transition-all ${view === 'profile' ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50/50' : 'text-slate-400 hover:bg-slate-50'}`}>
+                                <UserCircleIcon className="w-5 h-5"/> Perfil
+                            </button>
+                            <button onClick={() => setView('activity')} className={`flex-1 py-4 font-bold text-center flex items-center justify-center gap-2 transition-all ${view === 'activity' ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50/50' : 'text-slate-400 hover:bg-slate-50'}`}>
+                            <ActivityLogIcon className="w-5 h-5" /> Atividades
+                            </button>
+                            <button onClick={() => setView('conversations')} className={`flex-1 py-4 font-bold text-center flex items-center justify-center gap-2 transition-all ${view === 'conversations' ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50/50' : 'text-slate-400 hover:bg-slate-50'}`}>
+                            <ChatBubbleLeftRightIcon className="w-5 h-5" /> Conversas ({conversations.length})
+                            </button>
+                        </div>
+
+                        <div className="flex-grow overflow-y-auto p-6">
+                            {view === 'profile' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div>
+                                        <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider mb-4">Fotos de Perfil</h3>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {user.photos.slice(0, 4).map((photo, index) => photo ? (
+                                                <img key={index} src={photo} alt={`${user.name} ${index+1}`} className="w-full aspect-square object-cover rounded-xl shadow-sm" />
+                                            ) : (
+                                                <div key={index} className="w-full aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-300">Slot Vazio</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-6">
+                                        <div><h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-1">Biografia</h3><p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">{user.bio || 'Sem biografia informada.'}</p></div>
+                                        <div><h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-1">Localização</h3><p className="text-sm text-slate-600">{user.location}</p></div>
+                                        <div><h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2">Informações de Fé</h3>
+                                            <div className="flex flex-wrap mt-1"><InfoPill>{user.denomination}</InfoPill><InfoPill>Frequência: {user.churchFrequency}</InfoPill></div>
+                                        </div>
+                                        <div><h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2">Valores Nucleares</h3>
+                                            <div className="flex flex-wrap mt-1">{user.keyValues.length > 0 ? user.keyValues.map(v => <InfoPill key={v}>{v}</InfoPill>) : <span className="text-xs text-slate-400">Nenhum valor selecionado</span>}</div>
+                                        </div>
+                                        <div><h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2">Interesses</h3>
+                                            <div className="flex flex-wrap mt-1">{user.interests.length > 0 ? user.interests.map(i => <InfoPill key={i}>{i}</InfoPill>) : <span className="text-xs text-slate-400">Nenhum interesse selecionado</span>}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {view === 'activity' && (
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider mb-6">Registro de Atividade</h3>
+                                    {activities.length > 0 ? (
+                                        <div className="relative pl-6 border-l-2 border-slate-100 space-y-8">
+                                            {activities.map(activity => (
+                                                <div key={activity.id} className="relative">
+                                                    <div className="absolute -left-[31px] top-0 p-1.5 bg-white border-2 border-slate-100 rounded-full text-slate-400 shadow-sm">
+                                                        <ActivityIcon type={activity.type} className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-slate-800 font-semibold">{activity.details || 'Ação realizada.'}</p>
+                                                        <p className="text-xs text-slate-400 mt-0.5">{new Date(activity.timestamp).toLocaleString('pt-BR')}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : ( <p className="text-center text-slate-400 py-12">Nenhuma atividade registrada no sistema para este usuário.</p> )}
+                                </div>
+                            )}
+                            {view === 'conversations' && (
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider mb-6">Canais de Conversa Ativos</h3>
+                                    {conversations.length > 0 ? (
+                                        <div className="grid grid-cols-1 gap-3">
+                                            {conversations.map(({ partnerId, lastMessage }) => (
+                                                <div key={partnerId} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between hover:border-sky-200 transition-all group">
+                                                    <div className="flex-grow">
+                                                        <p className="font-bold text-slate-800">Parceiro ID: {partnerId.slice(0, 8)}...</p>
+                                                        <p className="text-xs text-slate-500 truncate max-w-md italic mt-1">"{lastMessage.text}"</p>
+                                                        <p className="text-[10px] text-slate-400 mt-2">Última interação: {new Date(lastMessage.created_at).toLocaleString('pt-BR')}</p>
+                                                    </div>
+                                                    <button onClick={() => alert('Visualização direta de chat desabilitada por privacidade (Admin Nível 2 exigido).')} className="opacity-0 group-hover:opacity-100 bg-white text-sky-600 border border-sky-100 font-bold text-[10px] py-2 px-4 rounded-lg shadow-sm transition-all hover:bg-sky-600 hover:text-white">AUDITAR CHAT</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-center text-slate-400 py-12">Este usuário ainda não iniciou nenhuma conversa.</p>
+                                    )}
+                                </div>
                             )}
                         </div>
-                    )}
-                </div>
 
-                <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end items-center gap-3">
-                    <span className="text-sm font-semibold text-slate-600 mr-auto">Ações de Moderação:</span>
-                    <button onClick={() => onAction(user.id, 'warn')} className="bg-amber-500 text-white font-bold py-2 px-4 rounded-lg text-sm hover:bg-amber-600">Avisar</button>
-                    <button onClick={() => onAction(user.id, user.status === 'active' ? 'suspend' : 'reactivate')} className="bg-orange-500 text-white font-bold py-2 px-4 rounded-lg text-sm hover:bg-orange-600">
-                        {user.status === 'active' ? 'Suspender' : 'Reativar'}
-                    </button>
-                    <button onClick={() => onAction(user.id, 'delete')} className="bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm hover:bg-red-700">Excluir</button>
-                </div>
+                        <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end items-center gap-4 rounded-b-2xl">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mr-auto">Moderação de Conta</span>
+                            <button onClick={() => onAction(user.id, 'warn')} className="bg-amber-500 text-white font-bold py-2.5 px-6 rounded-xl text-xs hover:bg-amber-600 transition-colors shadow-sm">AVISAR</button>
+                            <button 
+                                onClick={() => onAction(user.id, user.status === 'active' ? 'suspend' : 'reactivate')} 
+                                className={`${user.status === 'active' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'} text-white font-bold py-2.5 px-6 rounded-xl text-xs transition-colors shadow-sm`}
+                            >
+                                {user.status === 'active' ? 'SUSPENDER' : 'REATIVAR'}
+                            </button>
+                            <button onClick={() => onAction(user.id, 'delete')} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-xl text-xs hover:bg-red-700 transition-colors shadow-sm">EXCLUIR</button>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

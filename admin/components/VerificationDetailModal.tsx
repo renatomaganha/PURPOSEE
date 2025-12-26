@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FaceVerification, VerificationStatus } from '../types';
 import { XIcon } from '../../components/icons/XIcon';
 import { CheckIcon } from '../icons/CheckIcon';
@@ -6,10 +6,11 @@ import { CheckIcon } from '../icons/CheckIcon';
 interface VerificationDetailModalProps {
     verification: FaceVerification;
     onClose: () => void;
-    onUpdateStatus: (verificationId: string, newStatus: VerificationStatus) => void;
+    onUpdateStatus: (verificationId: string, newStatus: VerificationStatus) => Promise<void>;
 }
 
 export const VerificationDetailModal: React.FC<VerificationDetailModalProps> = ({ verification, onClose, onUpdateStatus }) => {
+    const [isProcessing, setIsProcessing] = useState(false);
     const isPending = verification.status === VerificationStatus.PENDING;
 
     const statusStyles: Record<VerificationStatus, string> = {
@@ -17,6 +18,15 @@ export const VerificationDetailModal: React.FC<VerificationDetailModalProps> = (
         [VerificationStatus.VERIFIED]: 'bg-green-100 text-green-800',
         [VerificationStatus.REJECTED]: 'bg-red-100 text-red-800',
         [VerificationStatus.NOT_VERIFIED]: 'bg-slate-100 text-slate-800',
+    };
+
+    const handleAction = async (status: VerificationStatus) => {
+        setIsProcessing(true);
+        try {
+            await onUpdateStatus(verification.id, status);
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     return (
@@ -59,16 +69,20 @@ export const VerificationDetailModal: React.FC<VerificationDetailModalProps> = (
                     <div className="mt-6 pt-6 border-t flex items-center justify-end gap-4">
                         <p className="text-sm font-semibold mr-auto text-slate-600">As fotos correspondem à mesma pessoa?</p>
                         <button 
-                            onClick={() => onUpdateStatus(verification.id, VerificationStatus.REJECTED)}
-                            className="bg-red-600 text-white font-bold py-2 px-6 rounded-lg text-sm hover:bg-red-700 flex items-center gap-2"
+                            disabled={isProcessing}
+                            onClick={() => handleAction(VerificationStatus.REJECTED)}
+                            className="bg-red-600 text-white font-bold py-2 px-6 rounded-lg text-sm hover:bg-red-700 flex items-center gap-2 disabled:opacity-50"
                         >
-                            <XIcon className="w-5 h-5"/> Rejeitar
+                            {isProcessing ? <div className="w-5 h-5 border-2 border-t-white border-white/30 rounded-full animate-spin"></div> : <XIcon className="w-5 h-5"/>}
+                            Rejeitar
                         </button>
                         <button 
-                            onClick={() => onUpdateStatus(verification.id, VerificationStatus.VERIFIED)}
-                            className="bg-green-600 text-white font-bold py-2 px-6 rounded-lg text-sm hover:bg-green-700 flex items-center gap-2"
+                            disabled={isProcessing}
+                            onClick={() => handleAction(VerificationStatus.VERIFIED)}
+                            className="bg-green-600 text-white font-bold py-2 px-6 rounded-lg text-sm hover:bg-green-700 flex items-center gap-2 disabled:opacity-50"
                         >
-                            <CheckIcon className="w-5 h-5"/> Aprovar
+                            {isProcessing ? <div className="w-5 h-5 border-2 border-t-white border-white/30 rounded-full animate-spin"></div> : <CheckIcon className="w-5 h-5"/>}
+                            Aprovar
                         </button>
                     </div>
                 ) : (

@@ -49,47 +49,6 @@ type ModalView = 'none' | 'filters' | 'settings' | 'block' | 'report' | 'delete'
 
 const BOOST_DURATION = 3600; // 60 minutes in seconds
 
-// Mock data for tags, simulating a fetch from a 'tags' table
-const mockTags: Tag[] = [
-    { id: 'denom_1', category: 'denominations', name: 'Batista', emoji: '💧', created_at: new Date().toISOString() },
-    { id: 'denom_2', category: 'denominations', name: 'Presbiteriana', emoji: '📖', created_at: new Date().toISOString() },
-    { id: 'denom_3', category: 'denominations', name: 'Metodista', emoji: '🔥', created_at: new Date().toISOString() },
-    { id: 'denom_4', category: 'denominations', name: 'Pentecostal', emoji: '🕊️', created_at: new Date().toISOString() },
-    { id: 'denom_5', category: 'denominations', name: 'Adventista', emoji: '🕖', created_at: new Date().toISOString() },
-    { id: 'denom_6', category: 'denominations', name: 'Católico', emoji: '✝️', created_at: new Date().toISOString() },
-    { id: 'denom_7', category: 'denominations', name: 'CCB', emoji: '🎶', created_at: new Date().toISOString() },
-    { id: 'denom_8', category: 'denominations', name: 'Cristão', emoji: '❤️', created_at: new Date().toISOString() },
-    { id: 'denom_9', category: 'denominations', name: 'Evangélico', emoji: '🙌', created_at: new Date().toISOString() },
-    { id: 'denom_10', category: 'denominations', name: 'Espirita', emoji: '✨', created_at: new Date().toISOString() },
-    { id: 'denom_11', category: 'denominations', name: 'Judaísmo', emoji: '✡️', created_at: new Date().toISOString() },
-    { id: 'denom_12', category: 'denominations', name: 'Não Denominacional', emoji: '⛪', created_at: new Date().toISOString() },
-
-    { id: 'kv_1', category: 'keyValues', name: 'Família', emoji: '👨‍👩‍👧‍👦', created_at: new Date().toISOString() },
-    { id: 'kv_2', category: 'keyValues', name: 'Oração', emoji: '🙏', created_at: new Date().toISOString() },
-    { id: 'kv_3', category: 'keyValues', name: 'Serviço', emoji: '🤝', created_at: new Date().toISOString() },
-    { id: 'kv_4', category: 'keyValues', name: 'Honestidade', emoji: '✅', created_at: new Date().toISOString() },
-    { id: 'kv_5', category: 'keyValues', name: 'Comunhão', emoji: '🧑‍🤝‍🧑', created_at: new Date().toISOString() },
-    { id: 'kv_6', category: 'keyValues', name: 'Adoração', emoji: '🎤', created_at: new Date().toISOString() },
-    { id: 'kv_7', category: 'keyValues', name: 'Missões', emoji: '🌍', created_at: new Date().toISOString() },
-    { id: 'kv_8', category: 'keyValues', name: 'Fé', emoji: '✝️', created_at: new Date().toISOString() },
-
-    { id: 'int_1', category: 'interests', name: 'Leitura', emoji: '📚', created_at: new Date().toISOString() },
-    { id: 'int_2', category: 'interests', name: 'Música', emoji: '🎵', created_at: new Date().toISOString() },
-    { id: 'int_3', category: 'interests', name: 'Viagens', emoji: '✈️', created_at: new Date().toISOString() },
-    { id: 'int_4', category: 'interests', name: 'Caminhadas', emoji: '🚶‍♂️', created_at: new Date().toISOString() },
-    { id: 'int_5', category: 'interests', name: 'Fotografia', emoji: '📷', created_at: new Date().toISOString() },
-    { id: 'int_6', category: 'interests', name: 'Culinária', emoji: '🍳', created_at: new Date().toISOString() },
-    { id: 'int_7', category: 'interests', name: 'Filmes', emoji: '🎬', created_at: new Date().toISOString() },
-    { id: 'int_8', category: 'interests', name: 'Voluntariado', emoji: '💖', created_at: new Date().toISOString() },
-    { id: 'int_9', category: 'interests', name: 'Esportes', emoji: '⚽', created_at: new Date().toISOString() },
-    { id: 'int_10', category: 'interests', name: 'Estudo Bíblico', emoji: '📖', created_at: new Date().toISOString() },
-
-    { id: 'lang_1', category: 'languages', name: 'Português', emoji: '🇧🇷', created_at: new Date().toISOString() },
-    { id: 'lang_2', category: 'languages', name: 'Inglês', emoji: '🇺🇸', created_at: new Date().toISOString() },
-    { id: 'lang_3', category: 'languages', name: 'Espanhol', emoji: '🇪🇸', created_at: new Date().toISOString() },
-];
-
-
 const dbProfileToAppProfile = (dbData: any): UserProfile => {
   if (!dbData) return {} as UserProfile;
   return {
@@ -225,7 +184,9 @@ function App() {
   const [activeCampaign, setActiveCampaign] = useState<any>(null);
   
   const [isPremiumSaleActive] = useState(true);
-  const [tags] = useState<Tag[]>(mockTags);
+  
+  // Tags dinâmicas do Banco de Dados
+  const [tags, setTags] = useState<Tag[]>([]);
 
   const boostTimerRef = useRef<number | null>(null);
   const [boostTimeRemaining, setBoostTimeRemaining] = useState<number | null>(null);
@@ -347,6 +308,18 @@ function App() {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [currentUserProfile, updateCurrentUserProfile, addToast]);
+
+  // Função centralizada de busca de TAGS
+  const refreshTags = useCallback(async () => {
+    const { data, error } = await supabase.from('tags').select('*').order('created_at', { ascending: false });
+    if (data) setTags(data);
+    if (error) console.error("Erro ao carregar tags:", error.message);
+  }, []);
+
+  // Busca inicial de TAGS
+  useEffect(() => {
+    refreshTags();
+  }, [refreshTags]);
 
   useEffect(() => {
     const checkSessionAndProfile = async () => {
@@ -775,6 +748,26 @@ function App() {
       setUserToUnmatch(null);
   };
 
+  // Funções de Gerenciamento de Tags (Passadas para o Admin)
+  const handleAddTag = async (newTag: Omit<Tag, 'id' | 'created_at'>) => {
+    const { error } = await supabase.from('tags').insert([newTag]);
+    if (error) throw error;
+    await refreshTags(); // Recarrega do banco para garantir sincronia
+  };
+
+  const handleUpdateTag = async (updatedTag: Tag) => {
+    const { error } = await supabase.from('tags').update({ name: updatedTag.name, emoji: updatedTag.emoji }).eq('id', updatedTag.id);
+    if (error) throw error;
+    await refreshTags();
+  };
+
+  const handleDeleteTag = async (tagId: string) => {
+    const { error } = await supabase.from('tags').delete().eq('id', tagId);
+    if (error) throw error;
+    await refreshTags();
+  };
+
+
   // Derived lists from tags state
   const denominations = useMemo(() => tags.filter(t => t.category === 'denominations'), [tags]);
   const keyValues = useMemo(() => tags.filter(t => t.category === 'keyValues'), [tags]);
@@ -812,7 +805,14 @@ function App() {
         if (!currentUserProfile) return <LoadingScreen logoUrl={logoUrl} />;
         
         const mainContent = () => {
-          if (activeView === 'admin') return <AdminApp />;
+          if (activeView === 'admin') return (
+            <AdminApp 
+                externalTags={tags} 
+                onAddTagExternal={handleAddTag}
+                onUpdateTagExternal={handleUpdateTag}
+                onDeleteTagExternal={handleDeleteTag}
+            />
+          );
           if (activeChat) return <ChatScreen match={activeChat} currentUserProfile={currentUserProfile} onBack={() => setActiveChat(null)} />;
           switch (activeView) {
             case 'profiles':
@@ -927,7 +927,20 @@ function App() {
             distanceToDetail = getDistance(currentUserProfile.latitude, currentUserProfile.longitude, profileToDetail.latitude, profileToDetail.longitude);
         }
         const { reason } = calculateCompatibilityScore(currentUserProfile, profileToDetail, likedMe);
-        return <ProfileDetailModal profile={profileToDetail} onClose={closeModal} onConfirmMatch={() => { setLikedProfiles(p => [...p, profileToDetail.id]); setMatchedUser(profileToDetail); closeModal(); }} onRemoveMatch={() => {setPassedProfiles(p => [...p, profileToDetail.id]); closeModal();}} onBlock={() => {setUserToBlockOrReport(profileToDetail); openModal('block')}} onReport={() => {setUserToBlockOrReport(profileToDetail); openModal('report')}} distance={distanceToDetail} matchReason={reason} />;
+        const isMutualMatch = conversations.some(c => c.id === profileToDetail.id);
+        return <ProfileDetailModal 
+            profile={profileToDetail} 
+            onClose={closeModal} 
+            onConfirmMatch={() => { setLikedProfiles(p => [...p, profileToDetail.id]); setMatchedUser(profileToDetail); closeModal(); }} 
+            onRemoveMatch={() => {setPassedProfiles(p => [...p, profileToDetail.id]); closeModal();}} 
+            onBlock={() => {setUserToBlockOrReport(profileToDetail); openModal('block')}} 
+            onReport={() => {setUserToBlockOrReport(profileToDetail); openModal('report')}} 
+            onUnmatch={() => openUnmatchModal(profileToDetail, 'unmatch')}
+            onChat={() => { handleSelectChat(profileToDetail); setActiveView('messages'); closeModal(); }}
+            distance={distanceToDetail} 
+            matchReason={reason}
+            isMutualMatch={isMutualMatch}
+        />;
       }
       default: return null;
     }

@@ -39,7 +39,7 @@ export const SetupCheck: React.FC<SetupCheckProps> = ({ children }) => {
         // 4. Check for 'campaigns' table
         supabase.from('campaigns').select('id', { count: 'exact', head: true }).then(({ error }) => {
             if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist") || error.message.includes("schema cache"))) {
-                errors.push('A tabela "campaigns" (Marketing) não foi encontrada ou o cache do banco precisa ser atualizado.');
+                errors.push('A tabela "campaigns" (Marketing) não foi encontrada.');
             }
         }),
 
@@ -70,6 +70,13 @@ export const SetupCheck: React.FC<SetupCheckProps> = ({ children }) => {
                 errors.push('A tabela "face_verifications" não foi encontrada.');
             }
         }),
+
+        // 9. Check for 'tags' table
+        supabase.from('tags').select('id', { count: 'exact', head: true }).then(({ error }) => {
+            if (error && (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist") || error.message.includes("schema cache"))) {
+                errors.push('A tabela "tags" não foi encontrada.');
+            }
+        }),
       ];
 
       await Promise.all(checks);
@@ -96,14 +103,14 @@ export const SetupCheck: React.FC<SetupCheckProps> = ({ children }) => {
         <div className="max-w-2xl">
           <h1 className="text-3xl font-bold text-red-700">Configuração Pendente</h1>
           <div className="mt-6 text-left bg-white p-6 rounded-lg shadow-md border border-red-200">
-            <p className="font-bold text-slate-800 mb-2">Para habilitar as novas ferramentas (Marketing, Suporte, Verificação), execute os comandos SQL no Supabase:</p>
+            <p className="font-bold text-slate-800 mb-2">Execute os comandos SQL no Supabase para habilitar todas as funções:</p>
             <ul className="list-disc list-inside space-y-2 text-slate-700 mb-4 text-sm">
               {setupErrors.map((err, index) => <li key={index}>{err}</li>)}
             </ul>
             <div className="text-sm text-slate-600 border-t pt-4 space-y-1">
-              <p>1. Crie a tabela <strong>campaigns</strong> e o bucket <strong>marketing-assets</strong> (Público).</p>
-              <p>2. Crie a tabela <strong>support_tickets</strong>.</p>
-              <p>3. Crie a tabela <strong>face_verifications</strong> e o bucket <strong>face-verifications</strong> (Público).</p>
+              <p>1. Crie a tabela <strong>tags</strong> (id, category, name, emoji, created_at).</p>
+              <p>2. Crie a tabela <strong>campaigns</strong> e o bucket <strong>marketing-assets</strong>.</p>
+              <p>3. Crie a tabela <strong>face_verifications</strong>.</p>
             </div>
           </div>
            <button 
