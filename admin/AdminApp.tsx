@@ -60,29 +60,29 @@ export default function AdminApp({
     const [verificationDetail, setVerificationDetail] = useState<FaceVerification | null>(null);
     const [isPremiumSaleActive, setIsPremiumSaleActive] = useState(true);
 
-    // Mapeamento manual para garantir que snake_case do DB vire camelCase do types.ts
+    // Mapeamento manual mais seguro para evitar erros em perfis incompletos
     const mapDbToProfile = (u: any): UserProfile => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        age: u.age,
-        location: u.location,
+        id: u.id || '',
+        name: u.name || 'Sem Nome',
+        email: u.email || '',
+        age: u.age || 0,
+        location: u.location || 'Não informada',
         latitude: u.latitude,
         longitude: u.longitude,
-        isPremium: u.is_premium,
-        isVerified: u.is_verified,
-        face_verification_status: u.face_verification_status as VerificationStatus,
+        isPremium: !!u.is_premium,
+        isVerified: !!u.is_verified,
+        face_verification_status: (u.face_verification_status as VerificationStatus) || VerificationStatus.NOT_VERIFIED,
         status: u.is_paused ? 'suspended' : 'active',
         created_at: u.created_at,
-        gender: u.gender as Gender,
-        relationshipGoal: u.relationship_goal as RelationshipGoal,
-        maritalStatus: u.marital_status as MaritalStatus,
-        photos: u.photos || [],
+        gender: (u.gender as Gender) || Gender.MULHER,
+        relationshipGoal: (u.relationship_goal as RelationshipGoal) || RelationshipGoal.NAO_SEI,
+        maritalStatus: (u.marital_status as MaritalStatus) || MaritalStatus.SOLTEIRO,
+        photos: Array.isArray(u.photos) ? u.photos : [],
         bio: u.bio || '',
-        interests: u.interests || [],
-        denomination: u.denomination || '',
-        churchFrequency: u.church_frequency as ChurchFrequency,
-        keyValues: u.key_values || [],
+        interests: Array.isArray(u.interests) ? u.interests : [],
+        denomination: u.denomination || 'Não Denominacional',
+        churchFrequency: (u.church_frequency as ChurchFrequency) || ChurchFrequency.OCASIONALMENTE,
+        keyValues: Array.isArray(u.key_values) ? u.key_values : [],
         referred_by: u.referred_by
     });
 
@@ -90,12 +90,21 @@ export default function AdminApp({
     const fetchData = useCallback(async () => {
         if (!isAdminAuthenticated) return;
         setIsLoading(true);
+        console.log("Admin: Iniciando busca de dados...");
 
         try {
-            // Fetch Users
-            const { data: usersData, error: uError } = await supabase.from('user_profiles').select('*').order('created_at', { ascending: false });
-            if (uError) console.error("Admin: Erro ao buscar usuários:", uError);
-            if (usersData) setUsers(usersData.map(mapDbToProfile));
+            // Fetch Users - Selecionando explicitamente as colunas para evitar erros de cache de esquema
+            const { data: usersData, error: uError } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (uError) {
+                console.error("Admin: Erro ao buscar usuários:", uError);
+            } else if (usersData) {
+                console.log(`Admin: ${usersData.length} usuários encontrados.`);
+                setUsers(usersData.map(mapDbToProfile));
+            }
 
             // Fetch Reports
             const { data: reportsData } = await supabase.from('reports').select('*').order('created_at', { ascending: false });
@@ -108,6 +117,8 @@ export default function AdminApp({
             // Fetch Verifications
             const { data: verifData } = await supabase.from('face_verifications').select('*').order('created_at', { ascending: false });
             if (verifData) setFaceVerifications(verifData);
+        } catch (err) {
+            console.error("Admin: Erro inesperado no fetchData:", err);
         } finally {
             setIsLoading(false);
         }
@@ -128,7 +139,7 @@ export default function AdminApp({
             
             if (messages) setSelectedUserMessages(messages as AdminMessage[]);
 
-            // Simular logs de atividade
+            // Simular logs de atividade básicos
             const activities: UserActivity[] = [];
             if (user.created_at) {
                 activities.push({
@@ -136,7 +147,7 @@ export default function AdminApp({
                     userId: user.id,
                     type: ActivityType.LOGIN,
                     timestamp: user.created_at,
-                    details: 'Conta criada.'
+                    details: 'Conta criada na plataforma.'
                 });
             }
             setSelectedUserActivities(activities);
@@ -152,12 +163,17 @@ export default function AdminApp({
         const checkSession = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user?.email?.toLowerCase() === ADMIN_EMAIL) {
+                if (session?.user?.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim()) {
+                    console.log("Admin: Sessão administrativa confirmada.");
                     setIsAdminAuthenticated(true);
+                    setIsLoading(false);
+                } else {
+                    console.log("Admin: Sessão não administrativa ou inexistente.");
+                    setIsAdminAuthenticated(false);
+                    setIsLoading(false);
                 }
             } catch (e: any) {
                 console.error("Admin: Erro ao verificar sessão:", e.message);
-            } finally {
                 setIsLoading(false);
             }
         };
@@ -165,7 +181,7 @@ export default function AdminApp({
         checkSession();
 
         const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (session?.user?.email?.toLowerCase() === ADMIN_EMAIL) {
+            if (session?.user?.email?.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim()) {
                 setIsAdminAuthenticated(true);
                 setIsLoginModalOpen(false);
             } else {
@@ -187,7 +203,7 @@ export default function AdminApp({
         setIsAdminAuthenticated(false);
     };
 
-    // Ações de Usuário (FUNCIONALIDADES REAIS)
+    // Ações de Usuário
     const handleUserAction = async (userId: string, action: 'warn' | 'suspend' | 'reactivate' | 'delete') => {
         try {
             if (action === 'delete') {
@@ -208,18 +224,18 @@ export default function AdminApp({
                 
                 alert(`Usuário ${isPaused ? 'suspenso' : 'reativado'}.`);
             } else if (action === 'warn') {
-                const msg = prompt('Digite o aviso para o usuário:');
+                const msg = prompt('Digite o aviso para o usuário (será enviado via Chat):');
                 if (msg) {
                     await supabase.from('messages').insert({
                         sender_id: 'SYSTEM_ADMIN',
                         receiver_id: userId,
-                        text: `⚠️ AVISO: ${msg}`,
+                        text: `⚠️ AVISO DA ADMINISTRAÇÃO: ${msg}`,
                     });
-                    alert('Aviso enviado.');
+                    alert('Aviso enviado com sucesso.');
                 }
             }
         } catch (err: any) {
-            alert(`Erro: ${err.message}`);
+            alert(`Erro ao processar ação: ${err.message}`);
         }
     };
 
@@ -234,9 +250,9 @@ export default function AdminApp({
             setFaceVerifications(prev => prev.map(v => v.id === verificationId ? { ...v, status: newStatus } : v));
             setUsers(prev => prev.map(u => u.id === verification.user_id ? { ...u, isVerified: newStatus === VerificationStatus.VERIFIED } : u));
             setVerificationDetail(null);
-            alert(`Status atualizado.`);
+            alert(`Status de verificação atualizado.`);
         } catch (error: any) {
-            alert(`Erro: ${error.message}`);
+            alert(`Erro na verificação: ${error.message}`);
         }
     };
 
@@ -246,7 +262,7 @@ export default function AdminApp({
             setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: newStatus } : r));
             setReportDetail(null);
         } catch (err: any) {
-            alert(`Erro: ${err.message}`);
+            alert(`Erro ao atualizar denúncia: ${err.message}`);
         }
     };
 
@@ -256,9 +272,29 @@ export default function AdminApp({
             setSupportTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: newStatus } : t));
             setTicketDetail(null);
         } catch (err: any) {
-            alert(`Erro: ${err.message}`);
+            alert(`Erro ao atualizar ticket: ${err.message}`);
         }
     };
+
+    if (isLoading && !isAdminAuthenticated) {
+        return (
+            <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-800 text-white">
+                <div className="w-12 h-12 border-4 border-t-white border-slate-600 rounded-full animate-spin"></div>
+                <p className="mt-4 font-bold tracking-widest uppercase text-xs opacity-50">Autenticando...</p>
+            </div>
+        );
+    }
+    
+    if (!isAdminAuthenticated) {
+        return (
+            <>
+                <AdminLandingPage onEnter={() => setIsLoginModalOpen(true)} logoUrl={logoUrl} />
+                {isLoginModalOpen && (
+                    <AdminLoginModal onClose={() => setIsLoginModalOpen(false)} onLoginSuccess={() => fetchData()} />
+                )}
+            </>
+        );
+    }
 
     const renderContent = () => {
         switch (view) {
@@ -290,7 +326,7 @@ export default function AdminApp({
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center h-full">
                         <div className="w-12 h-12 border-4 border-t-sky-500 border-slate-200 rounded-full animate-spin"></div>
-                        <p className="mt-4 text-slate-500 font-semibold">Sincronizando banco de dados...</p>
+                        <p className="mt-4 text-slate-500 font-semibold tracking-tight">Sincronizando base de dados...</p>
                     </div>
                 ) : renderContent()}
             </main>
